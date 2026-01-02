@@ -30,6 +30,8 @@
 
 [ ] 规定严格全序比较合同：`cmp(seg_a, seg_b, ctx)` 必须确定性、无随机/哈希依赖；处理“同点相交时相等”的规则（用 `x+ε` 语义 + `SegmentId` 兜底）。
 
+[x] 实现比较器关键构件：非垂直线段的 `y_at_x(sweep_x: Rational) -> Rational` 与 `cmp_segments_at_x_plus_epsilon(...)`（先比 y，y 相等再比斜率 `dy/dx`，仍相等用 `SegmentId` 兜底）。
+
 [ ] 设计范围查询 API：提供 `lower_bound_y(y)` + `next(cursor)` 或 `range_iter(ymin,ymax)` 的抽象（保证可做 `O(log n + m)` 的垂直查询）。
 
 [ ] 设计“句柄/定位”策略：是否需要 `SegmentId -> NodeHandle` 的映射以支持稳定删除与 `O(log n)` 邻居查询；并规定垂直线段是否禁止插入状态结构（建议禁止）。
