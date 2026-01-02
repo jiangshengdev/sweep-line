@@ -38,7 +38,7 @@
 
 [ ] 设计“句柄/定位”策略：是否需要 `SegmentId -> NodeHandle` 的映射以支持稳定删除与 `O(log n)` 邻居查询；并规定垂直线段是否禁止插入状态结构（建议禁止）。
 
-[ ] 规划参考实现的接口对齐策略：以“确定性 Treap/Skiplist”为默认实现，优先级由 `SegmentId` 经固定混洗函数生成（无 RNG），确保可复现；未来可替换为红黑树实现而不改算法层。
+[x] 实现确定性 Treap 参考实现：新增 `TreapSweepStatus`，优先级由 `SegmentId` 固定混洗函数生成（无 RNG），实现 `insert/remove/pred/succ/snapshot_order/validate_invariants`；`range_by_y` 先用中序遍历 + 过滤 + 早停，优先保证稳定性与语义正确。
 
 [ ] 规划测试与验证：为接口写单元测试（插入/删除回归、邻居一致性、range 查询正确性、同输入多次运行 snapshot 一致性），并加入 `validate_invariants()` 供 debug/测试使用。
 
