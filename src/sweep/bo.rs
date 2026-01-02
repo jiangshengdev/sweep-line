@@ -1,19 +1,13 @@
 use std::collections::BTreeSet;
 
-use crate::geom::intersection::{PointIntersectionKind, SegmentIntersection, intersect_segments};
+use crate::geom::intersection::{
+    PointIntersectionKind, PointIntersectionRecord, SegmentIntersection, intersect_segments,
+};
 use crate::geom::point::PointRat;
 use crate::geom::segment::{SegmentId, Segments};
 use crate::rational::Rational;
 use crate::sweep::event_queue::{Event, EventQueue};
 use crate::sweep::status::{SweepStatus, SweepStatusError, TreapSweepStatus};
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PointIntersectionRecord {
-    pub point: PointRat,
-    pub kind: PointIntersectionKind,
-    pub a: SegmentId,
-    pub b: SegmentId,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BoError {

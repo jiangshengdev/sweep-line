@@ -1,7 +1,9 @@
+use core::fmt;
+
 use crate::geom::fixed::PointI64;
 use crate::geom::point::PointRat;
 use crate::geom::predicates::{on_segment, orient};
-use crate::geom::segment::Segment;
+use crate::geom::segment::{Segment, SegmentId};
 use crate::rational::Rational;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -10,6 +12,23 @@ pub enum PointIntersectionKind {
     Proper,
     /// 交点落在至少一条线段的端点上（包含端点-端点、端点-内部）。
     EndpointTouch,
+}
+
+impl fmt::Display for PointIntersectionKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PointIntersectionKind::Proper => write!(f, "Proper"),
+            PointIntersectionKind::EndpointTouch => write!(f, "EndpointTouch"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PointIntersectionRecord {
+    pub point: PointRat,
+    pub kind: PointIntersectionKind,
+    pub a: SegmentId,
+    pub b: SegmentId,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -315,4 +334,3 @@ mod tests {
         assert!(intersect_segments(&a, &b).is_none());
     }
 }
-
