@@ -786,8 +786,9 @@ function renderDynamicLayer() {
   if (step.point) {
     const p = pointRatToWorld(step.point, session.scale);
     ctx.save();
-    ctx.globalAlpha = 0.95;
-    drawPoint(ctx, p.x, p.y, 6, palette.text, palette.canvasOutline, 1.25);
+    ctx.globalAlpha = 0.9;
+    const sizeCss = Math.max(12, appState.settings.intersectionRadiusCurrent * 4 + 6);
+    drawCrosshair(ctx, p.x, p.y, sizeCss, palette.accent, 1.5);
     ctx.restore();
   }
 }
@@ -844,6 +845,23 @@ function drawPoint(ctx, worldX, worldY, radiusCss, fillStyle, strokeStyle, strok
   if (strokeStyle) {
     ctx.stroke();
   }
+  ctx.restore();
+}
+
+function drawCrosshair(ctx, worldX, worldY, sizeCss, strokeStyle, lineWidthCss) {
+  const p = worldToCanvas(worldX, worldY);
+  const dpr = appState.viewport.dpr;
+  const size = sizeCss * dpr;
+  const half = size / 2;
+  ctx.save();
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = (lineWidthCss ?? 1) * dpr;
+  ctx.beginPath();
+  ctx.moveTo(p.x - half, p.y);
+  ctx.lineTo(p.x + half, p.y);
+  ctx.moveTo(p.x, p.y - half);
+  ctx.lineTo(p.x, p.y + half);
+  ctx.stroke();
   ctx.restore();
 }
 
