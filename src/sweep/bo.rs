@@ -8,6 +8,8 @@ use crate::geom::segment::{SegmentId, Segments};
 use crate::rational::Rational;
 use crate::sweep::event_queue::{Event, EventQueue};
 use crate::sweep::status::{SweepStatus, SweepStatusError, TreapSweepStatus};
+use crate::trace::Trace;
+use crate::trace::TraceStep;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BoError {
@@ -23,9 +25,24 @@ impl From<SweepStatusError> for BoError {
 /// 第一阶段：枚举点交（包含端点接触）。
 ///
 /// 说明：
-/// - 当前版本只覆盖非垂直线段；垂直线段路径会在下一步补齐；
+/// - 垂直线段不进入状态结构，而是在 x 批处理结束时用 `range_by_y` 做命中查询；
 /// - 对共线重叠只返回占位，不输出“重叠段”（第二阶段再做）。
 pub fn enumerate_point_intersections(segments: &Segments) -> Result<Vec<PointIntersectionRecord>, BoError> {
+    Ok(enumerate_point_intersections_with_trace(segments)?.0)
+}
+
+pub fn enumerate_point_intersections_with_trace(
+    segments: &Segments,
+) -> Result<(Vec<PointIntersectionRecord>, Trace), BoError> {
+    let mut trace = Trace::default();
+    let intersections = run_bentley_ottmann(segments, Some(&mut trace))?;
+    Ok((intersections, trace))
+}
+
+fn run_bentley_ottmann(
+    segments: &Segments,
+    mut trace: Option<&mut Trace>,
+) -> Result<Vec<PointIntersectionRecord>, BoError> {
     let mut queue = EventQueue::new();
     for id in 0..segments.len() {
         let id = SegmentId(id);
@@ -43,7 +60,22 @@ pub fn enumerate_point_intersections(segments: &Segments) -> Result<Vec<PointInt
     while let Some((point, events)) = queue.pop_next_batch() {
         if let Some(x) = pending_x {
             if point.x != x {
-                flush_vertical_hits(segments, &status, &pending_vertical, &mut out);
+                if !pending_vertical.is_empty() {
+                    let hits = collect_vertical_hits(segments, &status, &pending_vertical);
+                    out.extend_from_slice(&hits);
+
+                    if let Some(trace) = trace.as_deref_mut() {
+                        let mut step = TraceStep::vertical_flush(x);
+                        step.events = pending_vertical
+                            .iter()
+                            .map(|id| format!("Vertical({})", id.0))
+                            .collect();
+                        step.active = status.snapshot_order();
+                        step.intersections = hits;
+                        trace.steps.push(step);
+                    }
+                }
+
                 pending_vertical.clear();
                 pending_x = None;
             }
@@ -53,6 +85,14 @@ pub fn enumerate_point_intersections(segments: &Segments) -> Result<Vec<PointInt
         }
 
         status.set_sweep_x(point.x);
+
+        let out_before = out.len();
+        let mut step = trace
+            .as_deref_mut()
+            .map(|_| TraceStep::point_batch(point, point.x));
+        if let Some(step) = step.as_mut() {
+            step.events = events.iter().map(|e| event_to_string(*e)).collect();
+        }
 
         // 基础覆盖：同一事件点上“作为端点出现”的线段两两之间一定相交于该点。
         // 这能补齐例如 “一条线段在此结束、另一条线段在此开始” 的端点接触情形。
@@ -154,25 +194,49 @@ pub fn enumerate_point_intersections(segments: &Segments) -> Result<Vec<PointInt
                 }
             }
         }
+
+        if let Some(trace) = trace.as_deref_mut() {
+            let mut step = step.expect("trace 存在时 step 应为 Some");
+            step.active = status.snapshot_order();
+            step.intersections.extend_from_slice(&out[out_before..]);
+            trace.steps.push(step);
+        }
     }
 
-    flush_vertical_hits(segments, &status, &pending_vertical, &mut out);
+    if let Some(x) = pending_x {
+        if !pending_vertical.is_empty() {
+            let hits = collect_vertical_hits(segments, &status, &pending_vertical);
+            out.extend_from_slice(&hits);
+
+            if let Some(trace) = trace.as_deref_mut() {
+                let mut step = TraceStep::vertical_flush(x);
+                step.events = pending_vertical
+                    .iter()
+                    .map(|id| format!("Vertical({})", id.0))
+                    .collect();
+                step.active = status.snapshot_order();
+                step.intersections = hits;
+                trace.steps.push(step);
+            }
+        }
+    }
+
     Ok(out)
 }
 
-fn flush_vertical_hits(
+fn collect_vertical_hits(
     segments: &Segments,
     status: &impl SweepStatus,
     vertical: &BTreeSet<SegmentId>,
-    out: &mut Vec<PointIntersectionRecord>,
-) {
+)-> Vec<PointIntersectionRecord> {
     if vertical.is_empty() || status.is_empty() {
-        return;
+        return Vec::new();
     }
 
+    let mut hits: Vec<PointIntersectionRecord> = Vec::new();
     for &v_id in vertical {
         let v = segments.get(v_id);
-        debug_assert!(v.is_vertical(), "flush_vertical_hits 仅应处理垂直线段");
+        debug_assert!(v.is_vertical(), "collect_vertical_hits 仅应处理垂直线段");
 
         let y_min = Rational::from_int(v.a.y.min(v.b.y) as i128);
         let y_max = Rational::from_int(v.a.y.max(v.b.y) as i128);
@@ -186,9 +250,11 @@ fn flush_vertical_hits(
             };
 
             let (a, b) = if v_id <= s_id { (v_id, s_id) } else { (s_id, v_id) };
-            out.push(PointIntersectionRecord { point, kind, a, b });
+            hits.push(PointIntersectionRecord { point, kind, a, b });
         }
     }
+
+    hits
 }
 
 fn record_endpoint_pairs(point: PointRat, events: &[Event], out: &mut Vec<PointIntersectionRecord>) {
@@ -262,11 +328,20 @@ fn schedule_or_record_pair(
     }
 }
 
+fn event_to_string(event: Event) -> String {
+    match event {
+        Event::SegmentStart { segment } => format!("SegmentStart({})", segment.0),
+        Event::SegmentEnd { segment } => format!("SegmentEnd({})", segment.0),
+        Event::Intersection { a, b } => format!("Intersection({},{})", a.0, b.0),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::geom::fixed::PointI64;
     use crate::geom::segment::Segment;
+    use crate::trace::TraceStepKind;
 
     #[test]
     fn reports_single_proper_intersection() {
@@ -353,5 +428,42 @@ mod tests {
                 b: other,
             }]
         );
+    }
+
+    #[test]
+    fn produces_trace_steps_for_point_batches_and_vertical_flush() {
+        let mut segments = Segments::new();
+        let vertical = segments.push(Segment {
+            a: PointI64 { x: 0, y: 0 },
+            b: PointI64 { x: 0, y: 10 },
+            source_index: 0,
+        });
+        let other = segments.push(Segment {
+            a: PointI64 { x: -10, y: 3 },
+            b: PointI64 { x: 10, y: 3 },
+            source_index: 1,
+        });
+
+        let (out, trace) = enumerate_point_intersections_with_trace(&segments).unwrap();
+        assert_eq!(
+            out,
+            vec![PointIntersectionRecord {
+                point: PointRat {
+                    x: Rational::from_int(0),
+                    y: Rational::from_int(3),
+                },
+                kind: PointIntersectionKind::Proper,
+                a: vertical,
+                b: other,
+            }]
+        );
+
+        let flush = trace
+            .steps
+            .iter()
+            .find(|s| s.kind == TraceStepKind::VerticalFlush)
+            .expect("应包含一次垂直线段的批末查询记录");
+        assert_eq!(flush.sweep_x, Rational::from_int(0));
+        assert_eq!(flush.intersections, out);
     }
 }
