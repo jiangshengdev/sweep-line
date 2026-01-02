@@ -776,10 +776,9 @@ function renderDynamicLayer() {
   }
 
   if (appState.settings.showCumulativeIntersections) {
-    const intersectionsToDraw = session.intersectionsFlat.slice(
-      0,
-      session.intersectionPrefixCounts[appState.currentStep] ?? 0,
-    );
+    const currentIndex = appState.currentStep;
+    const end = currentIndex > 0 ? (session.intersectionPrefixCounts[currentIndex - 1] ?? 0) : 0;
+    const intersectionsToDraw = session.intersectionsFlat.slice(0, end);
     drawIntersections(ctx, intersectionsToDraw, session.scale, false, palette);
   }
   drawIntersections(ctx, step.intersections, session.scale, true, palette);
