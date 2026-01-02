@@ -156,6 +156,21 @@ fn run_bentley_ottmann(
         intersection_pairs.sort();
         intersection_pairs.dedup();
 
+        // 端点接触（端点-内部）：端点线段在该点可能会“碰到”某条穿过该点的活动线段。
+        // 这类交点不应作为 `Intersection` 事件调度，但仍应在该点输出。
+        let mut endpoint_ids: Vec<SegmentId> = u.clone();
+        endpoint_ids.extend_from_slice(&l);
+        endpoint_ids.sort();
+        endpoint_ids.dedup();
+        record_endpoint_on_interior_hits(
+            segments,
+            &status,
+            point,
+            &endpoint_ids,
+            &mut out,
+            step.as_mut(),
+        );
+
         let mut c: Vec<SegmentId> = Vec::new();
         for (a, b) in &intersection_pairs {
             let a = *a;
@@ -354,6 +369,64 @@ fn record_endpoint_pairs(point: PointRat, events: &[Event], out: &mut Vec<PointI
     }
 }
 
+fn record_endpoint_on_interior_hits(
+    segments: &Segments,
+    status: &impl SweepStatus,
+    point: PointRat,
+    endpoint_ids: &[SegmentId],
+    out: &mut Vec<PointIntersectionRecord>,
+    mut trace_step: Option<&mut TraceStep>,
+) {
+    if endpoint_ids.is_empty() || status.is_empty() {
+        return;
+    }
+
+    let endpoint_set: BTreeSet<SegmentId> = endpoint_ids.iter().copied().collect();
+
+    // 找出所有在 x=point.x 处 y 恰好等于 point.y 的活动线段：它们穿过事件点，且未必以该点为端点。
+    let candidates = status.range_by_y(segments, point.y, point.y);
+    if candidates.is_empty() {
+        return;
+    }
+
+    let mut added = 0_usize;
+    for &e_id in endpoint_ids {
+        for &s_id in &candidates {
+            if s_id == e_id {
+                continue;
+            }
+            if endpoint_set.contains(&s_id) {
+                // 两端点都在该点的情况由 record_endpoint_pairs 负责，避免重复。
+                continue;
+            }
+
+            let Some(SegmentIntersection::Point { point: ip, kind }) =
+                intersect_segments(segments.get(e_id), segments.get(s_id))
+            else {
+                continue;
+            };
+            if ip != point || kind != PointIntersectionKind::EndpointTouch {
+                continue;
+            }
+
+            let (a, b) = if e_id <= s_id { (e_id, s_id) } else { (s_id, e_id) };
+            out.push(PointIntersectionRecord {
+                point: ip,
+                kind,
+                a,
+                b,
+            });
+            added += 1;
+        }
+    }
+
+    if added != 0 {
+        if let Some(step) = trace_step.as_mut() {
+            step.notes.push(format!("EndpointOnInterior: {}", added));
+        }
+    }
+}
+
 fn schedule_or_record_pair(
     segments: &Segments,
     queue: &mut EventQueue,
@@ -361,7 +434,7 @@ fn schedule_or_record_pair(
     current_point: PointRat,
     a: SegmentId,
     b: SegmentId,
-    out: &mut Vec<PointIntersectionRecord>,
+    _out: &mut Vec<PointIntersectionRecord>,
     mut trace_step: Option<&mut TraceStep>,
 ) {
     if a == b {
@@ -386,24 +459,8 @@ fn schedule_or_record_pair(
         }
         SegmentIntersection::Point { point, kind } => {
             if point == current_point {
-                // 在第一阶段里：此分支主要用于补齐“端点接触”这类不会被调度为未来交点事件的情况。
-                // 对于严格相交（Proper），正常应通过 `Intersection` 事件在该点统一输出，避免重复记录。
-                if kind == PointIntersectionKind::EndpointTouch {
-                    out.push(PointIntersectionRecord {
-                        point,
-                        kind,
-                        a,
-                        b,
-                    });
-                    if let Some(step) = trace_step.as_mut() {
-                        step.notes.push(format!(
-                            "Check({},{}) -> EndpointTouch @ {}",
-                            a.0,
-                            b.0,
-                            format_point(point)
-                        ));
-                    }
-                }
+                // 端点接触输出由事件点批处理统一负责（record_endpoint_pairs / record_endpoint_on_interior_hits）。
+                // 这里仅用于“不要调度过去/当前点”的防重复保护。
                 return;
             }
             if point < current_point {
