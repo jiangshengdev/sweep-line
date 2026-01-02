@@ -79,6 +79,16 @@
 [x] 实现侧边信息面板：warnings、step 元信息、events/notes、active、intersections（支持复制 JSON/文本）。
 [x] 支持 `VerticalFlush` 高亮：解析 `Vertical(id)` + 显示 `VerticalRange`（从 `notes` 中提取 y 范围）。
 [ ] 性能验证：大输入（大量垂直线段、steps 多）下仍能流畅拖动与播放。
+  - 目标：构造“点很多、steps 多、垂直命中多”的可复现输入，验证 viewer 的加载/渲染/拖拽/播放不会明显卡顿或崩溃。
+  - 统一约定：线段为“长线段”（不做短线段切分），便于聚焦在点数与 steps。
+  - L 档参数（先用常量，后续统一改动）：
+    - `GRID_N = 100`（正交网格与 45° 网格的每方向线段数）
+    - `SPIDER_SPOKES = 64`，`SPIDER_RINGS = 40`（蜘蛛网用例）
+  - 规划用例（Rust 生成，写入 `viewer/generated/`，不提交生成结果）：
+    - `perf-grid-orthogonal`：`GRID_N` 条水平长线段 + `GRID_N` 条垂直长线段，形成 `GRID_N^2` 个点交（含大量 `VerticalFlush` 命中）。
+    - `perf-grid-diagonal-45`：`GRID_N` 条斜率 `+1` 长线段 + `GRID_N` 条斜率 `-1` 长线段，形成大量有理数交点事件（steps 多）。
+    - `perf-spider-web`：`SPIDER_SPOKES` 条辐射线 + `SPIDER_RINGS` 圈环（多段折线）构成“蜘蛛网”，包含大量多段同点端点接触（退化压力）。
+  - 验收动作（人工）：加载上述 L 档用例，检查缩放/拖拽不卡顿，10fps 播放可用；必要时在 viewer 增加“降载开关”（例如隐藏 active 列表/关闭累计交点）。
 [x] 准备 2–3 个可复现示例 `viewer/examples/*.json`（与单测/手工用例一致），用于快速验收与回归。
 [x] Rust 示例生成器：输出大量可复现的 `viewer/generated/*.json`，并生成 `viewer/generated/index.json`（稳定顺序，供前端自动加载列表）。
 [x] 前端左侧列表：启动时自动加载 `viewer/generated/index.json`（不存在则回退到 `viewer/examples/index.json`），点击条目自动加载 session。
