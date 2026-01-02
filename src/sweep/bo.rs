@@ -114,136 +114,148 @@ fn run_bentley_ottmann(
             }
         }
 
-        for event in events {
-            match event {
-                Event::SegmentEnd { segment } => {
-                    if segments.get(segment).is_vertical() {
-                        if let Some(step) = step.as_mut() {
-                            step.notes.push(format!("VerticalEnd({})", segment.0));
-                        }
-                        continue;
-                    }
+        // 用 U/L/C(p) 的批处理语义替代“逐条事件顺序处理”，避免退化下出现“已删除线段仍被重排”。
+        let mut u: Vec<SegmentId> = Vec::new();
+        let mut l: Vec<SegmentId> = Vec::new();
+        let mut intersection_pairs: Vec<(SegmentId, SegmentId)> = Vec::new();
 
-                    let pred = status.pred(segment);
-                    let succ = status.succ(segment);
-                    if let Some(step) = step.as_mut() {
-                        step.notes.push(format!(
-                            "Remove({}) pred={:?} succ={:?}",
-                            segment.0,
-                            pred.map(|v| v.0),
-                            succ.map(|v| v.0)
-                        ));
-                    }
-                    status.remove(segment)?;
-
-                    if let (Some(a), Some(b)) = (pred, succ) {
-                        schedule_or_record_pair(
-                            segments,
-                            &mut queue,
-                            &mut scheduled,
-                            point,
-                            a,
-                            b,
-                            &mut out,
-                            step.as_mut(),
-                        );
-                    }
-                }
+        for event in &events {
+            match *event {
                 Event::SegmentStart { segment } => {
                     if segments.get(segment).is_vertical() {
                         pending_vertical.insert(segment);
                         if let Some(step) = step.as_mut() {
                             step.notes.push(format!("VerticalStart({})", segment.0));
                         }
-                        continue;
+                    } else {
+                        u.push(segment);
                     }
-
-                    if let Some(step) = step.as_mut() {
-                        step.notes.push(format!("Insert({})", segment.0));
-                    }
-                    status.insert(segments, segment)?;
-
-                    if let Some(pred) = status.pred(segment) {
-                        schedule_or_record_pair(
-                            segments,
-                            &mut queue,
-                            &mut scheduled,
-                            point,
-                            pred,
-                            segment,
-                            &mut out,
-                            step.as_mut(),
-                        );
-                    }
-                    if let Some(succ) = status.succ(segment) {
-                        schedule_or_record_pair(
-                            segments,
-                            &mut queue,
-                            &mut scheduled,
-                            point,
-                            segment,
-                            succ,
-                            &mut out,
-                            step.as_mut(),
-                        );
+                }
+                Event::SegmentEnd { segment } => {
+                    if segments.get(segment).is_vertical() {
+                        if let Some(step) = step.as_mut() {
+                            step.notes.push(format!("VerticalEnd({})", segment.0));
+                        }
+                    } else {
+                        l.push(segment);
                     }
                 }
                 Event::Intersection { a, b } => {
+                    intersection_pairs.push((a, b));
                     if let Some(step) = step.as_mut() {
                         step.notes.push(format!("IntersectionEvent({},{})", a.0, b.0));
                     }
-                    if let Some(SegmentIntersection::Point { point: ip, kind }) =
-                        intersect_segments(segments.get(a), segments.get(b))
-                    {
-                        if let Some(step) = step.as_mut() {
-                            step.notes.push(format!(
-                                "IntersectionAt({},{}) -> {} @ {}",
-                                a.0,
-                                b.0,
-                                kind,
-                                format_point(ip)
-                            ));
-                        }
-                        out.push(PointIntersectionRecord {
-                            point: ip,
-                            kind,
-                            a: a.min(b),
-                            b: a.max(b),
-                        });
-                    }
+                }
+            }
+        }
 
-                    // 通过 remove+insert 让 (a,b) 在 `x+ε` 的顺序恢复为比较器决定的稳定全序。
-                    if let Some(step) = step.as_mut() {
-                        step.notes.push(format!("Reorder({},{})", a.0, b.0));
-                    }
-                    status.reorder_segments(segments, &[a, b])?;
+        u.sort();
+        u.dedup();
+        l.sort();
+        l.dedup();
+        intersection_pairs.sort();
+        intersection_pairs.dedup();
 
-                    for id in [a, b] {
-                        if let Some(pred) = status.pred(id) {
-                            schedule_or_record_pair(
-                                segments,
-                                &mut queue,
-                                &mut scheduled,
-                                point,
-                                pred,
-                                id,
-                                &mut out,
-                                step.as_mut(),
-                            );
-                        }
-                        if let Some(succ) = status.succ(id) {
-                            schedule_or_record_pair(
-                                segments,
-                                &mut queue,
-                                &mut scheduled,
-                                point,
-                                id,
-                                succ,
-                                &mut out,
-                                step.as_mut(),
-                            );
-                        }
-                    }
+        let mut c: Vec<SegmentId> = Vec::new();
+        for (a, b) in &intersection_pairs {
+            let a = *a;
+            let b = *b;
+            if let Some(SegmentIntersection::Point { point: ip, kind }) =
+                intersect_segments(segments.get(a), segments.get(b))
+            {
+                if let Some(step) = step.as_mut() {
+                    step.notes.push(format!(
+                        "IntersectionAt({},{}) -> {} @ {}",
+                        a.0,
+                        b.0,
+                        kind,
+                        format_point(ip)
+                    ));
+                }
+                out.push(PointIntersectionRecord {
+                    point: ip,
+                    kind,
+                    a: a.min(b),
+                    b: a.max(b),
+                });
+                if kind == PointIntersectionKind::Proper {
+                    c.push(a);
+                    c.push(b);
+                }
+            }
+        }
+        c.sort();
+        c.dedup();
+
+        if let Some(step) = step.as_mut() {
+            step.notes.push(format!("ULC: U={} L={} C={}", u.len(), l.len(), c.len()));
+        }
+
+        let mut to_remove: Vec<SegmentId> = l.clone();
+        to_remove.extend_from_slice(&c);
+        to_remove.sort();
+        to_remove.dedup();
+
+        let mut to_insert: Vec<SegmentId> = u.clone();
+        to_insert.extend_from_slice(&c);
+        to_insert.sort();
+        to_insert.dedup();
+
+        for id in &to_remove {
+            if let Some(step) = step.as_mut() {
+                step.notes.push(format!("Remove({})", id.0));
+            }
+            status.remove(*id)?;
+        }
+
+        for id in &to_insert {
+            if let Some(step) = step.as_mut() {
+                step.notes.push(format!("Insert({})", id.0));
+            }
+            status.insert(segments, *id)?;
+        }
+
+        if to_insert.is_empty() {
+            // 只有删除（没有插入/重排）时：检查删除后在 p.y 附近新形成的相邻对。
+            let succ = status.lower_bound_by_y(segments, point.y);
+            let pred = succ.and_then(|id| status.pred(id));
+            if let (Some(a), Some(b)) = (pred, succ) {
+                schedule_or_record_pair(
+                    segments,
+                    &mut queue,
+                    &mut scheduled,
+                    point,
+                    a,
+                    b,
+                    &mut out,
+                    step.as_mut(),
+                );
+            }
+        } else {
+            for id in &to_insert {
+                if let Some(pred) = status.pred(*id) {
+                    schedule_or_record_pair(
+                        segments,
+                        &mut queue,
+                        &mut scheduled,
+                        point,
+                        pred,
+                        *id,
+                        &mut out,
+                        step.as_mut(),
+                    );
+                }
+                if let Some(succ) = status.succ(*id) {
+                    schedule_or_record_pair(
+                        segments,
+                        &mut queue,
+                        &mut scheduled,
+                        point,
+                        *id,
+                        succ,
+                        &mut out,
+                        step.as_mut(),
+                    );
                 }
             }
         }
