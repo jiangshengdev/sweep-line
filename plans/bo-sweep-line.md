@@ -86,6 +86,46 @@
 [x] 测试：多条线段同点相交（退化）。
 [x] 测试：大量垂直线段压力与稳定性。
 
+## 已知问题（待修复）
+
+### `Status(SegmentNotFound)`：端点接触交点被调度为 `Intersection` 事件
+
+现象：执行 `pnpm gen:sessions`（默认会生成 30 个随机用例）时，可能在某个随机用例上崩溃退出：
+
+```bash
+pnpm gen:sessions
+# 或：npm run gen:sessions
+```
+
+典型报错：
+- `错误：运行算法失败（random-0020）：Status(SegmentNotFound)`
+
+最小复现（与默认 `seed=1` 的 `random-0020` 等价）：
+
+```bash
+cargo run --bin generate-viewer-sessions -- --random 1 --seed 6653367501949350309
+```
+
+初步原因（算法侧）：
+- `schedule_or_record_pair` 在发现两线段未来相交时，无论交点类型都会调度 `Intersection`（包含 `EndpointTouch`）。
+- 同一事件点的批处理顺序当前为：`SegmentEnd` → `Intersection` → `SegmentStart`（以 `x+ε` 语义为主）。
+- 当“交点恰好落在某条线段端点”时，该线段可能已经在 `SegmentEnd` 阶段被移出状态结构；随后 `Intersection` 阶段仍会对 `(a,b)` 执行 `reorder_segments(remove+insert)`，从而触发 `SegmentNotFound`。
+
+影响：
+- 随机示例生成器可能中途失败，导致 `viewer/generated/index.json` 未生成，从而前端无法自动加载列表。
+- 对包含大量退化（端点接触、同点多线段）的输入，算法鲁棒性不足，可能在实际数据中也触发相同错误。
+
+临时绕开（不改算法）：
+- 只生成 curated/perf：`cargo run --bin generate-viewer-sessions -- --random 0`
+- 更换 `--seed` 或减少 `--random`，避免撞到该退化用例（不保证长期稳定）。
+- 在随机生成器中避免共享端点/端点落在其他线段上的输入（会降低“退化压力”，但可提升生成成功率）。
+
+可能的修复方案（按“改动小 → 语义更完整”排序）：
+- 方案 A（最小改动）：在处理 `Intersection` 事件时，仅当 `kind == Proper` 才执行 `reorder_segments`；若为 `EndpointTouch` 则只记录交点，不做重排。
+- 方案 B（容错）：`reorder_segments` 遇到 `SegmentNotFound` 时跳过重排（可在 trace/notes 里记录一次告警），保证算法不中断；再补充回归测试覆盖该退化场景。
+- 方案 C（事件语义调整）：对 `EndpointTouch` 引入单独事件类型（或在事件里携带交点类型），并定义“端点接触不触发重排”的批处理规则，避免与 `x+ε` 的顺序更新冲突。
+- 方案 D（更标准的退化处理）：按 BO 经典做法，在事件点 `p` 计算并处理集合 `U(p)/L(p)/C(p)`（在 `p` 开始、在 `p` 结束、穿过/相交于 `p` 的线段集合），统一插入/删除/重排与邻接检查；工程量更大，但语义最清晰。
+
 ## 第二阶段：共线重叠线段（最大重叠段）
 [ ] 按“支撑直线”的归一化表示对共线线段分组（基于固定点端点构造稳定 key）。
 [ ] 对每组做 1D 投影（非垂直用 `x`，垂直用 `y`），扫描覆盖次数；输出覆盖≥2 的**最大连续区间**作为“最大重叠线段集合”。
