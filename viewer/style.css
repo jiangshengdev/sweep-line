@@ -419,6 +419,30 @@ details summary {
   border-color: var(--accent-border);
 }
 
+.range {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  user-select: none;
+}
+
+.range:hover {
+  border-color: var(--accent-border);
+}
+
+.range input[type="range"] {
+  width: 120px;
+}
+
+.range span {
+  min-width: 3ch;
+  text-align: right;
+}
+
 input[type="checkbox"],
 input[type="range"] {
   accent-color: var(--accent);

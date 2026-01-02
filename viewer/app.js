@@ -10,6 +10,11 @@ const elements = {
   speed: document.getElementById("speed"),
   themeMode: document.getElementById("theme-mode"),
   showCumulativeIntersections: document.getElementById("show-cumulative-intersections"),
+  cumulativeIntersectionSize: document.getElementById("cumulative-intersection-size"),
+  cumulativeIntersectionSizeValue: document.getElementById("cumulative-intersection-size-value"),
+  currentIntersectionSize: document.getElementById("current-intersection-size"),
+  currentIntersectionSizeValue: document.getElementById("current-intersection-size-value"),
+  boldActiveSegments: document.getElementById("bold-active-segments"),
   stepSlider: document.getElementById("step-slider"),
   stepLabel: document.getElementById("step-label"),
   status: document.getElementById("status"),
@@ -38,6 +43,9 @@ const appState = {
   settings: {
     themeMode: "system",
     showCumulativeIntersections: true,
+    intersectionRadiusCumulative: 2,
+    intersectionRadiusCurrent: 3.5,
+    boldActiveSegments: false,
   },
   viewport: {
     widthCss: 1,
@@ -72,6 +80,9 @@ function setStatus(message) {
 const storageKeys = {
   themeMode: "traceViewer.themeMode",
   showCumulativeIntersections: "traceViewer.showCumulativeIntersections",
+  intersectionRadiusCumulative: "traceViewer.intersectionRadiusCumulative",
+  intersectionRadiusCurrent: "traceViewer.intersectionRadiusCurrent",
+  boldActiveSegments: "traceViewer.boldActiveSegments",
 };
 
 function safeStorageGetItem(key) {
@@ -90,6 +101,23 @@ function safeStorageSetItem(key, value) {
   }
 }
 
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function roundToHalf(value) {
+  return Math.round(value * 2) / 2;
+}
+
+function formatSizeValue(value) {
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+  const rounded = roundToHalf(value);
+  const text = String(rounded);
+  return text.endsWith(".0") ? text.slice(0, -2) : text;
+}
+
 function loadSettingsFromStorage() {
   const themeMode = safeStorageGetItem(storageKeys.themeMode);
   if (themeMode === "system" || themeMode === "light" || themeMode === "dark") {
@@ -101,6 +129,27 @@ function loadSettingsFromStorage() {
     appState.settings.showCumulativeIntersections = true;
   } else if (show === "false") {
     appState.settings.showCumulativeIntersections = false;
+  }
+
+  const cumulativeSizeText = safeStorageGetItem(storageKeys.intersectionRadiusCumulative);
+  const cumulativeSize = Number(cumulativeSizeText);
+  if (Number.isFinite(cumulativeSize)) {
+    appState.settings.intersectionRadiusCumulative = roundToHalf(
+      clampNumber(cumulativeSize, 0.5, 6),
+    );
+  }
+
+  const currentSizeText = safeStorageGetItem(storageKeys.intersectionRadiusCurrent);
+  const currentSize = Number(currentSizeText);
+  if (Number.isFinite(currentSize)) {
+    appState.settings.intersectionRadiusCurrent = roundToHalf(clampNumber(currentSize, 0.5, 10));
+  }
+
+  const boldActive = safeStorageGetItem(storageKeys.boldActiveSegments);
+  if (boldActive === "true") {
+    appState.settings.boldActiveSegments = true;
+  } else if (boldActive === "false") {
+    appState.settings.boldActiveSegments = false;
   }
 }
 
@@ -119,6 +168,25 @@ function applySettingsToUi() {
   }
   if (elements.showCumulativeIntersections) {
     elements.showCumulativeIntersections.checked = appState.settings.showCumulativeIntersections;
+  }
+  if (elements.cumulativeIntersectionSize) {
+    elements.cumulativeIntersectionSize.value = String(appState.settings.intersectionRadiusCumulative);
+  }
+  if (elements.cumulativeIntersectionSizeValue) {
+    elements.cumulativeIntersectionSizeValue.textContent = formatSizeValue(
+      appState.settings.intersectionRadiusCumulative,
+    );
+  }
+  if (elements.currentIntersectionSize) {
+    elements.currentIntersectionSize.value = String(appState.settings.intersectionRadiusCurrent);
+  }
+  if (elements.currentIntersectionSizeValue) {
+    elements.currentIntersectionSizeValue.textContent = formatSizeValue(
+      appState.settings.intersectionRadiusCurrent,
+    );
+  }
+  if (elements.boldActiveSegments) {
+    elements.boldActiveSegments.checked = appState.settings.boldActiveSegments;
   }
 }
 
@@ -145,6 +213,42 @@ function setShowCumulativeIntersections(enabled) {
   }
   appState.settings.showCumulativeIntersections = next;
   safeStorageSetItem(storageKeys.showCumulativeIntersections, String(next));
+  applySettingsToUi();
+  appState.render.dirtyDynamic = true;
+  requestRender();
+}
+
+function setIntersectionRadiusCumulative(value) {
+  const next = roundToHalf(clampNumber(Number(value) || 0, 0.5, 6));
+  if (appState.settings.intersectionRadiusCumulative === next) {
+    return;
+  }
+  appState.settings.intersectionRadiusCumulative = next;
+  safeStorageSetItem(storageKeys.intersectionRadiusCumulative, String(next));
+  applySettingsToUi();
+  appState.render.dirtyDynamic = true;
+  requestRender();
+}
+
+function setIntersectionRadiusCurrent(value) {
+  const next = roundToHalf(clampNumber(Number(value) || 0, 0.5, 10));
+  if (appState.settings.intersectionRadiusCurrent === next) {
+    return;
+  }
+  appState.settings.intersectionRadiusCurrent = next;
+  safeStorageSetItem(storageKeys.intersectionRadiusCurrent, String(next));
+  applySettingsToUi();
+  appState.render.dirtyDynamic = true;
+  requestRender();
+}
+
+function setBoldActiveSegments(enabled) {
+  const next = Boolean(enabled);
+  if (appState.settings.boldActiveSegments === next) {
+    return;
+  }
+  appState.settings.boldActiveSegments = next;
+  safeStorageSetItem(storageKeys.boldActiveSegments, String(next));
   applySettingsToUi();
   appState.render.dirtyDynamic = true;
   requestRender();
@@ -615,7 +719,9 @@ function renderDynamicLayer() {
 
   const activeSet = new Set(step.active);
   ctx.save();
-  ctx.lineWidth = 3 * appState.viewport.dpr;
+  const baseActiveWidthCss = 1.25;
+  const activeWidthCss = appState.settings.boldActiveSegments ? 3 : baseActiveWidthCss;
+  ctx.lineWidth = activeWidthCss * appState.viewport.dpr;
   ctx.globalAlpha = 0.95;
   for (const id of activeSet) {
     const seg = session.segmentsById[id];
@@ -699,9 +805,11 @@ function drawVerticalCaps(ctx, worldX, yMinWorld, yMaxWorld, palette) {
 }
 
 function drawIntersections(ctx, intersections, scale, isCurrentStep, palette) {
-  const radius = isCurrentStep ? 7 : 4;
+  const radius = isCurrentStep
+    ? appState.settings.intersectionRadiusCurrent
+    : appState.settings.intersectionRadiusCumulative;
   const strokeWidth = isCurrentStep ? 1.5 : 1.25;
-  const alpha = isCurrentStep ? 1.0 : 0.7;
+  const alpha = isCurrentStep ? 1.0 : 0.85;
   ctx.save();
   ctx.globalAlpha = alpha;
   for (const it of intersections) {
@@ -1108,6 +1216,18 @@ function installEventHandlers() {
 
   elements.showCumulativeIntersections?.addEventListener("change", () => {
     setShowCumulativeIntersections(elements.showCumulativeIntersections.checked);
+  });
+
+  elements.cumulativeIntersectionSize?.addEventListener("input", () => {
+    setIntersectionRadiusCumulative(elements.cumulativeIntersectionSize.value);
+  });
+
+  elements.currentIntersectionSize?.addEventListener("input", () => {
+    setIntersectionRadiusCurrent(elements.currentIntersectionSize.value);
+  });
+
+  elements.boldActiveSegments?.addEventListener("change", () => {
+    setBoldActiveSegments(elements.boldActiveSegments.checked);
   });
 
   elements.reloadIndex.addEventListener("click", async () => {
