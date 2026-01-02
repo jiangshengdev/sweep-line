@@ -406,6 +406,20 @@ fn schedule_or_record_pair(
                 return;
             }
 
+            // `Intersection` 事件仅代表“需要在 x+ε 发生重排”的交点；端点接触不应触发重排，
+            // 且更适合在事件点批处理里通过 U/L（以及必要的端点-内部检测）统一输出。
+            if kind == PointIntersectionKind::EndpointTouch {
+                if let Some(step) = trace_step.as_mut() {
+                    step.notes.push(format!(
+                        "SkipScheduleEndpointTouch({},{}) @ {}",
+                        a.0,
+                        b.0,
+                        format_point(point)
+                    ));
+                }
+                return;
+            }
+
             let key = (point, a, b);
             if scheduled.insert(key) {
                 queue.push(point, Event::intersection(a, b));
