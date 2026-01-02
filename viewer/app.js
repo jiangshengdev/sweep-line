@@ -8,6 +8,8 @@ const elements = {
   playPause: document.getElementById("play-pause"),
   nextStep: document.getElementById("next-step"),
   speed: document.getElementById("speed"),
+  themeMode: document.getElementById("theme-mode"),
+  showCumulativeIntersections: document.getElementById("show-cumulative-intersections"),
   stepSlider: document.getElementById("step-slider"),
   stepLabel: document.getElementById("step-label"),
   status: document.getElementById("status"),
@@ -33,6 +35,10 @@ const appState = {
   playing: false,
   playTimerId: null,
   speedFactor: 1,
+  settings: {
+    themeMode: "system",
+    showCumulativeIntersections: true,
+  },
   viewport: {
     widthCss: 1,
     heightCss: 1,
@@ -61,6 +67,103 @@ const appState = {
 
 function setStatus(message) {
   elements.status.textContent = message;
+}
+
+const storageKeys = {
+  themeMode: "traceViewer.themeMode",
+  showCumulativeIntersections: "traceViewer.showCumulativeIntersections",
+};
+
+function safeStorageGetItem(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSetItem(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // localStorage 不可用时保持静默：不影响主要功能
+  }
+}
+
+function loadSettingsFromStorage() {
+  const themeMode = safeStorageGetItem(storageKeys.themeMode);
+  if (themeMode === "system" || themeMode === "light" || themeMode === "dark") {
+    appState.settings.themeMode = themeMode;
+  }
+
+  const show = safeStorageGetItem(storageKeys.showCumulativeIntersections);
+  if (show === "true") {
+    appState.settings.showCumulativeIntersections = true;
+  } else if (show === "false") {
+    appState.settings.showCumulativeIntersections = false;
+  }
+}
+
+function applyThemeMode(themeMode) {
+  const root = document.documentElement;
+  if (themeMode === "system") {
+    root.removeAttribute("data-theme");
+  } else {
+    root.setAttribute("data-theme", themeMode);
+  }
+}
+
+function applySettingsToUi() {
+  if (elements.themeMode) {
+    elements.themeMode.value = appState.settings.themeMode;
+  }
+  if (elements.showCumulativeIntersections) {
+    elements.showCumulativeIntersections.checked = appState.settings.showCumulativeIntersections;
+  }
+}
+
+function setThemeMode(nextMode) {
+  if (nextMode !== "system" && nextMode !== "light" && nextMode !== "dark") {
+    return;
+  }
+  if (appState.settings.themeMode === nextMode) {
+    return;
+  }
+  appState.settings.themeMode = nextMode;
+  safeStorageSetItem(storageKeys.themeMode, nextMode);
+  applyThemeMode(nextMode);
+  applySettingsToUi();
+  appState.render.dirtyStatic = true;
+  appState.render.dirtyDynamic = true;
+  requestRender();
+}
+
+function setShowCumulativeIntersections(enabled) {
+  const next = Boolean(enabled);
+  if (appState.settings.showCumulativeIntersections === next) {
+    return;
+  }
+  appState.settings.showCumulativeIntersections = next;
+  safeStorageSetItem(storageKeys.showCumulativeIntersections, String(next));
+  applySettingsToUi();
+  appState.render.dirtyDynamic = true;
+  requestRender();
+}
+
+function getCanvasPalette() {
+  const styles = getComputedStyle(document.documentElement);
+  const read = (name, fallback) => {
+    const value = styles.getPropertyValue(name).trim();
+    return value || fallback;
+  };
+  return {
+    accent: read("--accent", "#77b3ff"),
+    text: read("--text", "#e7edf6"),
+    muted: read("--muted", "#9aa4b2"),
+    ok: read("--ok", "#6ee7b7"),
+    danger: read("--danger", "#ff6b6b"),
+    canvasOutline: read("--canvas-outline", "rgba(255, 255, 255, 0.62)"),
+  };
 }
 
 function setDropHintVisible(visible) {
@@ -487,6 +590,7 @@ function renderDynamicLayer() {
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  const palette = getCanvasPalette();
   const step = session.trace.steps[appState.currentStep];
   if (!step) {
     return;
@@ -497,9 +601,11 @@ function renderDynamicLayer() {
     const sweepA = worldToCanvas(sweepXWorld, -1e9);
     const sweepB = worldToCanvas(sweepXWorld, 1e9);
     ctx.save();
-    ctx.strokeStyle = "rgba(119, 179, 255, 0.75)";
+    ctx.strokeStyle = palette.accent;
     ctx.lineWidth = 1.5 * appState.viewport.dpr;
-    ctx.setLineDash([6, 6]);
+    ctx.globalAlpha = 0.75;
+    const dash = 6 * appState.viewport.dpr;
+    ctx.setLineDash([dash, dash]);
     ctx.beginPath();
     ctx.moveTo(sweepA.x, sweepA.y);
     ctx.lineTo(sweepB.x, sweepB.y);
@@ -551,31 +657,37 @@ function renderDynamicLayer() {
       if (range && Number.isFinite(p.ax)) {
         const yMinWorld = range.yMinFixed / session.scale;
         const yMaxWorld = range.yMaxFixed / session.scale;
-        drawVerticalCaps(ctx, p.ax, yMinWorld, yMaxWorld);
+        drawVerticalCaps(ctx, p.ax, yMinWorld, yMaxWorld, palette);
       }
     }
     ctx.restore();
   }
 
-  const intersectionsToDraw = session.intersectionsFlat.slice(
-    0,
-    session.intersectionPrefixCounts[appState.currentStep] ?? 0,
-  );
-  drawIntersections(ctx, intersectionsToDraw, session.scale, false);
-  drawIntersections(ctx, step.intersections, session.scale, true);
+  if (appState.settings.showCumulativeIntersections) {
+    const intersectionsToDraw = session.intersectionsFlat.slice(
+      0,
+      session.intersectionPrefixCounts[appState.currentStep] ?? 0,
+    );
+    drawIntersections(ctx, intersectionsToDraw, session.scale, false, palette);
+  }
+  drawIntersections(ctx, step.intersections, session.scale, true, palette);
 
   if (step.point) {
     const p = pointRatToWorld(step.point, session.scale);
-    drawPoint(ctx, p.x, p.y, 6, "rgba(255, 255, 255, 0.9)");
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    drawPoint(ctx, p.x, p.y, 6, palette.text, palette.canvasOutline, 1.25);
+    ctx.restore();
   }
 }
 
-function drawVerticalCaps(ctx, worldX, yMinWorld, yMaxWorld) {
+function drawVerticalCaps(ctx, worldX, yMinWorld, yMaxWorld, palette) {
   const cap = 6 * appState.viewport.dpr;
   const pMin = worldToCanvas(worldX, yMinWorld);
   const pMax = worldToCanvas(worldX, yMaxWorld);
   ctx.save();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+  ctx.strokeStyle = palette.text;
+  ctx.globalAlpha = 0.7;
   ctx.lineWidth = 1.5 * appState.viewport.dpr;
   ctx.beginPath();
   ctx.moveTo(pMin.x - cap, pMin.y);
@@ -586,28 +698,38 @@ function drawVerticalCaps(ctx, worldX, yMinWorld, yMaxWorld) {
   ctx.restore();
 }
 
-function drawIntersections(ctx, intersections, scale, isCurrentStep) {
-  const radius = isCurrentStep ? 4 : 2;
+function drawIntersections(ctx, intersections, scale, isCurrentStep, palette) {
+  const radius = isCurrentStep ? 7 : 4;
+  const strokeWidth = isCurrentStep ? 1.5 : 1.25;
+  const alpha = isCurrentStep ? 1.0 : 0.7;
+  ctx.save();
+  ctx.globalAlpha = alpha;
   for (const it of intersections) {
     const p = pointRatToWorld(it.point, scale);
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
       continue;
     }
-    const color =
-      it.kind === "Proper"
-        ? "rgba(110, 231, 183, 0.9)"
-        : "rgba(255, 107, 107, 0.9)";
-    drawPoint(ctx, p.x, p.y, radius, color);
+    const color = it.kind === "Proper" ? palette.ok : palette.danger;
+    drawPoint(ctx, p.x, p.y, radius, color, palette.canvasOutline, strokeWidth);
   }
+  ctx.restore();
 }
 
-function drawPoint(ctx, worldX, worldY, radius, fillStyle) {
+function drawPoint(ctx, worldX, worldY, radiusCss, fillStyle, strokeStyle, strokeWidthCss) {
   const p = worldToCanvas(worldX, worldY);
+  const radius = radiusCss * appState.viewport.dpr;
   ctx.save();
   ctx.fillStyle = fillStyle;
+  if (strokeStyle) {
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = (strokeWidthCss ?? 1) * appState.viewport.dpr;
+  }
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
+  if (strokeStyle) {
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -980,6 +1102,14 @@ function installEventHandlers() {
   elements.playPause.disabled = true;
   elements.stepSlider.disabled = true;
 
+  elements.themeMode?.addEventListener("change", () => {
+    setThemeMode(elements.themeMode.value);
+  });
+
+  elements.showCumulativeIntersections?.addEventListener("change", () => {
+    setShowCumulativeIntersections(elements.showCumulativeIntersections.checked);
+  });
+
   elements.reloadIndex.addEventListener("click", async () => {
     try {
       await loadIndexAndRenderList();
@@ -1119,6 +1249,21 @@ function installEventHandlers() {
     }
   });
 }
+
+loadSettingsFromStorage();
+applyThemeMode(appState.settings.themeMode);
+applySettingsToUi();
+
+window
+  .matchMedia("(prefers-color-scheme: dark)")
+  .addEventListener("change", () => {
+    if (appState.settings.themeMode !== "system") {
+      return;
+    }
+    appState.render.dirtyStatic = true;
+    appState.render.dirtyDynamic = true;
+    requestRender();
+  });
 
 installEventHandlers();
 loadIndexAndRenderList().catch(handleError);

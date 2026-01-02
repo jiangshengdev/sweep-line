@@ -31,6 +31,24 @@
             </select>
           </label>
         </div>
+        <div class="view-options" aria-label="显示选项">
+          <label class="toggle">
+            <input
+              id="show-cumulative-intersections"
+              type="checkbox"
+              checked
+            />
+            累计交点
+          </label>
+          <label class="theme">
+            主题
+            <select id="theme-mode">
+              <option value="system" selected>跟随系统</option>
+              <option value="light">浅色</option>
+              <option value="dark">深色</option>
+            </select>
+          </label>
+        </div>
         <div class="timeline">
           <input id="step-slider" type="range" min="0" max="0" value="0" />
           <span id="step-label" class="mono">0/0</span>
