@@ -39,6 +39,21 @@
     </header>
 
     <main class="layout">
+      <aside class="list-panel" aria-label="示例列表">
+        <section class="panel-section">
+          <h2>示例列表</h2>
+          <div class="list-actions">
+            <button id="reload-index" type="button">刷新</button>
+          </div>
+          <ul id="session-list" class="session-list"></ul>
+          <div id="session-list-empty" class="muted">
+            未找到索引：请运行 <span class="mono">pnpm gen:sessions</span> 生成
+            <span class="mono">viewer/generated/index.json</span>，或手动加载
+            <span class="mono">session.json</span>。
+          </div>
+        </section>
+      </aside>
+
       <section id="viewport" class="viewport" aria-label="可视化画布区域">
         <div class="canvas-stack">
           <canvas id="static-canvas"></canvas>
@@ -104,4 +119,3 @@
     <script type="module" src="./app.js"></script>
   </body>
 </html>
-

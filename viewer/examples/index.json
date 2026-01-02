@@ -1,0 +1,24 @@
+{
+  "schema": "session-index.v1",
+  "items": [
+    {
+      "id": "basic-cross",
+      "title": "内置：垂直命中（手写 trace）",
+      "path": "examples/basic-cross.json",
+      "tags": ["examples", "vertical"],
+      "segments": 2,
+      "steps": 5,
+      "warnings": 0
+    },
+    {
+      "id": "rational-intersection",
+      "title": "内置：有理数交点（手写 trace）",
+      "path": "examples/rational-intersection.json",
+      "tags": ["examples", "rational"],
+      "segments": 2,
+      "steps": 5,
+      "warnings": 0
+    }
+  ]
+}
+

@@ -33,6 +33,12 @@ body {
     "Courier New", monospace;
 }
 
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -103,8 +109,66 @@ button:disabled {
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 280px 1fr 360px;
   height: calc(100% - 52px - 36px);
+}
+
+.list-panel {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow: auto;
+  padding: 12px;
+}
+
+.list-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.session-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.session-list__group {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  margin-top: 6px;
+}
+
+.session-list__item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+
+.session-list__item:hover {
+  border-color: rgba(119, 179, 255, 0.55);
+}
+
+.session-list__item--active {
+  border-color: rgba(119, 179, 255, 0.85);
+  box-shadow: 0 0 0 2px rgba(119, 179, 255, 0.12) inset;
+}
+
+.session-item__title {
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.session-item__meta {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .viewport {
@@ -206,6 +270,11 @@ details summary {
   .layout {
     grid-template-columns: 1fr;
     height: calc(100% - 52px - 36px);
+  }
+
+  .list-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
   }
 
   .viewport {

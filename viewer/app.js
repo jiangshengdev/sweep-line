@@ -3,6 +3,7 @@ class UserError extends Error {}
 const elements = {
   fileInput: document.getElementById("file-input"),
   resetView: document.getElementById("reset-view"),
+  reloadIndex: document.getElementById("reload-index"),
   prevStep: document.getElementById("prev-step"),
   playPause: document.getElementById("play-pause"),
   nextStep: document.getElementById("next-step"),
@@ -12,6 +13,8 @@ const elements = {
   status: document.getElementById("status"),
   dropHint: document.getElementById("drop-hint"),
   viewport: document.getElementById("viewport"),
+  sessionList: document.getElementById("session-list"),
+  sessionListEmpty: document.getElementById("session-list-empty"),
   staticCanvas: document.getElementById("static-canvas"),
   dynamicCanvas: document.getElementById("dynamic-canvas"),
   sessionMeta: document.getElementById("session-meta"),
@@ -25,6 +28,7 @@ const elements = {
 
 const appState = {
   session: null,
+  sessionSource: null,
   currentStep: 0,
   playing: false,
   playTimerId: null,
@@ -49,6 +53,9 @@ const appState = {
     scheduled: false,
     dirtyStatic: true,
     dirtyDynamic: true,
+  },
+  index: {
+    items: [],
   },
 };
 
@@ -772,6 +779,7 @@ async function loadFromFile(file) {
   const session = parseSession(json);
   prepareSessionForPlayback(session);
   appState.session = session;
+  appState.sessionSource = null;
   appState.currentStep = 0;
   setDropHintVisible(false);
   resetView();
@@ -779,6 +787,7 @@ async function loadFromFile(file) {
   appState.render.dirtyStatic = true;
   appState.render.dirtyDynamic = true;
   requestRender();
+  updateSessionListSelection();
   setStatus(`已加载：${file.name}`);
 }
 
@@ -808,6 +817,161 @@ function handleError(error) {
   console.error(error);
 }
 
+function parseSessionIndex(value, path) {
+  const obj = parseObject(value, path);
+  const schema = parseString(obj.schema, `${path}.schema`);
+  if (schema !== "session-index.v1") {
+    throw new UserError(`${path}.schema 不是 session-index.v1`);
+  }
+  const rawItems = parseArray(obj.items, `${path}.items`);
+  const items = rawItems.map((v, i) => {
+    const itemPath = `${path}.items[${i}]`;
+    const itemObj = parseObject(v, itemPath);
+    return {
+      id: parseString(itemObj.id, `${itemPath}.id`),
+      title: parseString(itemObj.title, `${itemPath}.title`),
+      path: parseString(itemObj.path, `${itemPath}.path`),
+      tags: parseArray(itemObj.tags, `${itemPath}.tags`).map((t, j) =>
+        parseString(t, `${itemPath}.tags[${j}]`),
+      ),
+      segments: parseInteger(itemObj.segments, `${itemPath}.segments`),
+      steps: parseInteger(itemObj.steps, `${itemPath}.steps`),
+      warnings: parseInteger(itemObj.warnings, `${itemPath}.warnings`),
+    };
+  });
+  return { schema, items };
+}
+
+async function tryLoadIndexFile(url, groupTitle) {
+  let res;
+  try {
+    res = await fetch(url, { cache: "no-store" });
+  } catch {
+    return null;
+  }
+  if (!res.ok) {
+    return null;
+  }
+
+  let json;
+  try {
+    json = await res.json();
+  } catch {
+    throw new UserError(`索引解析失败：${url} 不是合法 JSON`);
+  }
+
+  const index = parseSessionIndex(json, "$");
+  return index.items.map((item) => ({ ...item, groupTitle }));
+}
+
+async function loadIndexAndRenderList() {
+  const items = [];
+  const generated = await tryLoadIndexFile("./generated/index.json", "Rust 生成");
+  if (generated) {
+    items.push(...generated);
+  }
+  const examples = await tryLoadIndexFile("./examples/index.json", "内置示例");
+  if (examples) {
+    items.push(...examples);
+  }
+  appState.index.items = items;
+  renderSessionList();
+}
+
+function renderSessionList() {
+  clearChildren(elements.sessionList);
+  const items = appState.index.items;
+  if (!items.length) {
+    elements.sessionListEmpty.hidden = false;
+    return;
+  }
+  elements.sessionListEmpty.hidden = true;
+
+  const fragment = document.createDocumentFragment();
+  let lastGroup = null;
+  for (const item of items) {
+    if (item.groupTitle !== lastGroup) {
+      lastGroup = item.groupTitle;
+      const groupLi = document.createElement("li");
+      groupLi.className = "session-list__group";
+      groupLi.textContent = item.groupTitle;
+      fragment.appendChild(groupLi);
+    }
+
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "session-list__item";
+    button.dataset.path = item.path;
+
+    const title = document.createElement("div");
+    title.className = "session-item__title";
+    title.textContent = item.title;
+
+    const meta = document.createElement("div");
+    meta.className = "session-item__meta mono";
+    meta.textContent = `segments=${item.segments} steps=${item.steps} warnings=${item.warnings}`;
+
+    button.appendChild(title);
+    button.appendChild(meta);
+    button.addEventListener("click", async () => {
+      try {
+        await loadFromUrl(item.path);
+      } catch (error) {
+        handleError(error);
+      }
+    });
+
+    li.appendChild(button);
+    fragment.appendChild(li);
+  }
+
+  elements.sessionList.appendChild(fragment);
+  updateSessionListSelection();
+}
+
+function updateSessionListSelection() {
+  const current = appState.sessionSource;
+  const buttons = elements.sessionList.querySelectorAll("button.session-list__item");
+  for (const btn of buttons) {
+    btn.classList.toggle("session-list__item--active", current && btn.dataset.path === current);
+  }
+}
+
+async function loadFromUrl(url) {
+  stopPlay();
+  let res;
+  try {
+    res = await fetch(url, { cache: "no-store" });
+  } catch {
+    throw new UserError(`加载失败：无法请求 ${url}`);
+  }
+  if (!res.ok) {
+    throw new UserError(`加载失败：${url}（HTTP ${res.status}）`);
+  }
+
+  let json;
+  try {
+    json = await res.json();
+  } catch {
+    throw new UserError(`加载失败：${url} 不是合法 JSON`);
+  }
+
+  const session = parseSession(json);
+  prepareSessionForPlayback(session);
+  appState.session = session;
+  appState.sessionSource = url;
+  appState.currentStep = 0;
+  setDropHintVisible(false);
+  resetView();
+  refreshUiForSession(url);
+  appState.render.dirtyStatic = true;
+  appState.render.dirtyDynamic = true;
+  requestRender();
+  updateSessionListSelection();
+  setStatus(`已加载：${url}`);
+}
+
 function installEventHandlers() {
   setStatus("未加载数据：请选择或拖拽 session.json");
   setDropHintVisible(true);
@@ -815,6 +979,15 @@ function installEventHandlers() {
   elements.nextStep.disabled = true;
   elements.playPause.disabled = true;
   elements.stepSlider.disabled = true;
+
+  elements.reloadIndex.addEventListener("click", async () => {
+    try {
+      await loadIndexAndRenderList();
+      setStatus("已刷新示例列表");
+    } catch (error) {
+      handleError(error);
+    }
+  });
 
   elements.fileInput.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
@@ -948,3 +1121,4 @@ function installEventHandlers() {
 }
 
 installEventHandlers();
+loadIndexAndRenderList().catch(handleError);

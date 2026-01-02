@@ -1,5 +1,6 @@
 use crate::geom::intersection::PointIntersectionRecord;
 use crate::preprocess::{InputSegmentF64, PreprocessOutput, preprocess_segments};
+use crate::session::session_v1_to_json_string;
 use crate::sweep::bo::{BoError, enumerate_point_intersections_with_trace};
 use crate::trace::Trace;
 
@@ -29,6 +30,13 @@ pub fn run_phase1(input: &[InputSegmentF64]) -> Result<Phase1Output, BoError> {
     })
 }
 
+impl Phase1Output {
+    /// 将 phase1 结果打包为 `session.v1` JSON（可直接喂给 `viewer/` 回放器）。
+    pub fn to_session_json_string(&self) -> String {
+        session_v1_to_json_string(&self.preprocess.segments, &self.trace)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -50,4 +58,3 @@ mod tests {
         assert!(json.contains("\"warnings\":[\"第 0 条输入："));
     }
 }
-

@@ -14,7 +14,18 @@ python3 -m http.server 8000
 
 ## 加载数据
 - 点击页面左上角“加载 session.json”，或把文件拖拽到画布区域。
-- 示例数据在 `viewer/examples/`。
+- 左侧“示例列表”会自动尝试加载：
+  - `viewer/generated/index.json`（Rust 生成的示例索引）
+  - `viewer/examples/index.json`（仓库内置示例）
+
+## 生成示例（Rust）
+在仓库根目录运行：
+
+```bash
+pnpm gen:sessions
+```
+
+会生成 `viewer/generated/*.json` 与 `viewer/generated/index.json`（该目录已加入 `.gitignore`，不提交）。
 
 ## 操作
 - 播放/暂停：`Space`
@@ -24,4 +35,3 @@ python3 -m http.server 8000
 
 ## 数据格式
 `session.v1` 的建议格式见 `plans/trace-visualizer.md`。
-

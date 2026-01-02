@@ -70,7 +70,7 @@
 
 ## 待办
 [x] 明确 `session.v1` 字段顺序与最小校验规则（schema/version、字段缺失时的中文错误提示）。
-[ ] （可选）Rust 侧补齐 `session.v1` 输出能力：把 `PreprocessOutput` + `Trace` 写成稳定 JSON（字段顺序固定）。
+[x] Rust 侧补齐 `session.v1` 输出能力：把 `Segments` + `Trace` 写成稳定 JSON（字段顺序固定），并提供 `Phase1Output -> session.v1` 的便捷入口。
 [x] 新增 `viewer/` 静态页面骨架（页面布局、基础样式）。
 [x] 实现 `session.json` 加载（文件选择/拖拽）与解析（含 `Rational`/Point/segments）。
 [x] 实现坐标系统与 viewport：适配屏幕、缩放/平移（鼠标滚轮缩放、拖拽平移）。
@@ -80,6 +80,10 @@
 [x] 支持 `VerticalFlush` 高亮：解析 `Vertical(id)` + 显示 `VerticalRange`（从 `notes` 中提取 y 范围）。
 [ ] 性能验证：大输入（大量垂直线段、steps 多）下仍能流畅拖动与播放。
 [x] 准备 2–3 个可复现示例 `viewer/examples/*.json`（与单测/手工用例一致），用于快速验收与回归。
+[x] Rust 示例生成器：输出大量可复现的 `viewer/generated/*.json`，并生成 `viewer/generated/index.json`（稳定顺序，供前端自动加载列表）。
+[x] 前端左侧列表：启动时自动加载 `viewer/generated/index.json`（不存在则回退到 `viewer/examples/index.json`），点击条目自动加载 session。
+[x] 工程脚本：新增 `pnpm gen:sessions`（生成示例与索引），并把 `viewer/generated/` 加入 `.gitignore`（只提交生成器，不提交生成结果）。
+[x] 稳定性验证：为 `session.v1` 与示例生成器增加“字节级稳定”测试（至少覆盖 1–2 个固定样例）。
 
 ## 备选路线（不阻塞 v0）
 - Rust GUI（`egui/eframe`）：数据与算法同语言同进程，交互更强，但需要引入依赖与打包。

@@ -61,7 +61,12 @@ impl Segments {
         self.segments.iter()
     }
 
-    pub(crate) fn push(&mut self, segment: Segment) -> SegmentId {
+    /// 追加一条（已规范化、非零长度的）线段并返回其 `SegmentId`。
+    ///
+    /// 说明：
+    /// - 调用方需保证端点已按 `(x,y)` 字典序规范化（非垂直时满足 `a.x < b.x`）。
+    /// - 调用方需保证不是零长度线段（`a != b`）。
+    pub fn push(&mut self, segment: Segment) -> SegmentId {
         let id = SegmentId(self.segments.len());
         self.segments.push(segment);
         id
@@ -75,4 +80,3 @@ impl core::ops::Index<SegmentId> for Segments {
         self.get(index)
     }
 }
-
