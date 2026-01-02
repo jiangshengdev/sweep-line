@@ -32,6 +32,8 @@
 
 [x] 实现比较器关键构件：非垂直线段的 `y_at_x(sweep_x: Rational) -> Rational` 与 `cmp_segments_at_x_plus_epsilon(...)`（先比 y，y 相等再比斜率 `dy/dx`，仍相等用 `SegmentId` 兜底）。
 
+[ ] 定义 `SweepStatus` 接口并给出一个确定性基准实现（例如基于 `Vec<SegmentId>` 的参考实现），用于在不引入 Treap 复杂度的情况下先验证 `insert/remove`、`pred/succ`、`range_by_y` 的语义与稳定性。
+
 [ ] 设计范围查询 API：提供 `lower_bound_y(y)` + `next(cursor)` 或 `range_iter(ymin,ymax)` 的抽象（保证可做 `O(log n + m)` 的垂直查询）。
 
 [ ] 设计“句柄/定位”策略：是否需要 `SegmentId -> NodeHandle` 的映射以支持稳定删除与 `O(log n)` 邻居查询；并规定垂直线段是否禁止插入状态结构（建议禁止）。
