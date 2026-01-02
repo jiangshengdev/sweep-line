@@ -466,4 +466,29 @@ mod tests {
         assert_eq!(flush.sweep_x, Rational::from_int(0));
         assert_eq!(flush.intersections, out);
     }
+
+    #[test]
+    fn trace_json_is_byte_identical_across_runs() {
+        let mut segments = Segments::new();
+        segments.push(Segment {
+            a: PointI64 { x: 0, y: 0 },
+            b: PointI64 { x: 10, y: 10 },
+            source_index: 0,
+        });
+        segments.push(Segment {
+            a: PointI64 { x: 0, y: 10 },
+            b: PointI64 { x: 10, y: 0 },
+            source_index: 1,
+        });
+        segments.push(Segment {
+            a: PointI64 { x: 2, y: 0 },
+            b: PointI64 { x: 2, y: 10 },
+            source_index: 2,
+        });
+
+        let (out1, t1) = enumerate_point_intersections_with_trace(&segments).unwrap();
+        let (out2, t2) = enumerate_point_intersections_with_trace(&segments).unwrap();
+        assert_eq!(out1, out2);
+        assert_eq!(t1.to_json_string(), t2.to_json_string());
+    }
 }
