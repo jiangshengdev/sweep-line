@@ -72,6 +72,15 @@ fn run_bentley_ottmann(
                             .collect();
                         step.active = status.snapshot_order();
                         step.intersections = hits;
+                        for &v_id in &pending_vertical {
+                            let v = segments.get(v_id);
+                            let y_min = v.a.y.min(v.b.y);
+                            let y_max = v.a.y.max(v.b.y);
+                            step.notes.push(format!(
+                                "VerticalRange({}): y=[{},{}]",
+                                v_id.0, y_min, y_max
+                            ));
+                        }
                         trace.steps.push(step);
                     }
                 }
@@ -96,17 +105,35 @@ fn run_bentley_ottmann(
 
         // 基础覆盖：同一事件点上“作为端点出现”的线段两两之间一定相交于该点。
         // 这能补齐例如 “一条线段在此结束、另一条线段在此开始” 的端点接触情形。
+        let endpoint_pairs_before = out.len();
         record_endpoint_pairs(point, &events, &mut out);
+        let endpoint_pairs_added = out.len() - endpoint_pairs_before;
+        if endpoint_pairs_added != 0 {
+            if let Some(step) = step.as_mut() {
+                step.notes.push(format!("EndpointPairs: {}", endpoint_pairs_added));
+            }
+        }
 
         for event in events {
             match event {
                 Event::SegmentEnd { segment } => {
                     if segments.get(segment).is_vertical() {
+                        if let Some(step) = step.as_mut() {
+                            step.notes.push(format!("VerticalEnd({})", segment.0));
+                        }
                         continue;
                     }
 
                     let pred = status.pred(segment);
                     let succ = status.succ(segment);
+                    if let Some(step) = step.as_mut() {
+                        step.notes.push(format!(
+                            "Remove({}) pred={:?} succ={:?}",
+                            segment.0,
+                            pred.map(|v| v.0),
+                            succ.map(|v| v.0)
+                        ));
+                    }
                     status.remove(segment)?;
 
                     if let (Some(a), Some(b)) = (pred, succ) {
@@ -118,15 +145,22 @@ fn run_bentley_ottmann(
                             a,
                             b,
                             &mut out,
+                            step.as_mut(),
                         );
                     }
                 }
                 Event::SegmentStart { segment } => {
                     if segments.get(segment).is_vertical() {
                         pending_vertical.insert(segment);
+                        if let Some(step) = step.as_mut() {
+                            step.notes.push(format!("VerticalStart({})", segment.0));
+                        }
                         continue;
                     }
 
+                    if let Some(step) = step.as_mut() {
+                        step.notes.push(format!("Insert({})", segment.0));
+                    }
                     status.insert(segments, segment)?;
 
                     if let Some(pred) = status.pred(segment) {
@@ -138,6 +172,7 @@ fn run_bentley_ottmann(
                             pred,
                             segment,
                             &mut out,
+                            step.as_mut(),
                         );
                     }
                     if let Some(succ) = status.succ(segment) {
@@ -149,13 +184,26 @@ fn run_bentley_ottmann(
                             segment,
                             succ,
                             &mut out,
+                            step.as_mut(),
                         );
                     }
                 }
                 Event::Intersection { a, b } => {
+                    if let Some(step) = step.as_mut() {
+                        step.notes.push(format!("IntersectionEvent({},{})", a.0, b.0));
+                    }
                     if let Some(SegmentIntersection::Point { point: ip, kind }) =
                         intersect_segments(segments.get(a), segments.get(b))
                     {
+                        if let Some(step) = step.as_mut() {
+                            step.notes.push(format!(
+                                "IntersectionAt({},{}) -> {} @ {}",
+                                a.0,
+                                b.0,
+                                kind,
+                                format_point(ip)
+                            ));
+                        }
                         out.push(PointIntersectionRecord {
                             point: ip,
                             kind,
@@ -165,6 +213,9 @@ fn run_bentley_ottmann(
                     }
 
                     // 通过 remove+insert 让 (a,b) 在 `x+ε` 的顺序恢复为比较器决定的稳定全序。
+                    if let Some(step) = step.as_mut() {
+                        step.notes.push(format!("Reorder({},{})", a.0, b.0));
+                    }
                     status.reorder_segments(segments, &[a, b])?;
 
                     for id in [a, b] {
@@ -177,6 +228,7 @@ fn run_bentley_ottmann(
                                 pred,
                                 id,
                                 &mut out,
+                                step.as_mut(),
                             );
                         }
                         if let Some(succ) = status.succ(id) {
@@ -188,6 +240,7 @@ fn run_bentley_ottmann(
                                 id,
                                 succ,
                                 &mut out,
+                                step.as_mut(),
                             );
                         }
                     }
@@ -216,6 +269,15 @@ fn run_bentley_ottmann(
                     .collect();
                 step.active = status.snapshot_order();
                 step.intersections = hits;
+                for &v_id in &pending_vertical {
+                    let v = segments.get(v_id);
+                    let y_min = v.a.y.min(v.b.y);
+                    let y_max = v.a.y.max(v.b.y);
+                    step.notes.push(format!(
+                        "VerticalRange({}): y=[{},{}]",
+                        v_id.0, y_min, y_max
+                    ));
+                }
                 trace.steps.push(step);
             }
         }
@@ -288,6 +350,7 @@ fn schedule_or_record_pair(
     a: SegmentId,
     b: SegmentId,
     out: &mut Vec<PointIntersectionRecord>,
+    mut trace_step: Option<&mut TraceStep>,
 ) {
     if a == b {
         return;
@@ -295,12 +358,19 @@ fn schedule_or_record_pair(
     let (a, b) = if a <= b { (a, b) } else { (b, a) };
 
     let Some(hit) = intersect_segments(segments.get(a), segments.get(b)) else {
+        if let Some(step) = trace_step.as_mut() {
+            step.notes.push(format!("Check({},{}) -> none", a.0, b.0));
+        }
         return;
     };
 
     match hit {
         SegmentIntersection::CollinearOverlap => {
             // 第一阶段暂不输出“重叠段”。后续会引入“最大重叠段集合”输出。
+            if let Some(step) = trace_step.as_mut() {
+                step.notes
+                    .push(format!("Check({},{}) -> CollinearOverlap(phase2)", a.0, b.0));
+            }
         }
         SegmentIntersection::Point { point, kind } => {
             if point == current_point {
@@ -313,16 +383,47 @@ fn schedule_or_record_pair(
                         a,
                         b,
                     });
+                    if let Some(step) = trace_step.as_mut() {
+                        step.notes.push(format!(
+                            "Check({},{}) -> EndpointTouch @ {}",
+                            a.0,
+                            b.0,
+                            format_point(point)
+                        ));
+                    }
                 }
                 return;
             }
             if point < current_point {
+                if let Some(step) = trace_step.as_mut() {
+                    step.notes.push(format!(
+                        "Check({},{}) -> past @ {} (ignored)",
+                        a.0,
+                        b.0,
+                        format_point(point)
+                    ));
+                }
                 return;
             }
 
             let key = (point, a, b);
             if scheduled.insert(key) {
                 queue.push(point, Event::intersection(a, b));
+                if let Some(step) = trace_step.as_mut() {
+                    step.notes.push(format!(
+                        "ScheduleIntersection({},{}) @ {}",
+                        a.0,
+                        b.0,
+                        format_point(point)
+                    ));
+                }
+            } else if let Some(step) = trace_step.as_mut() {
+                step.notes.push(format!(
+                    "ScheduleIntersection({},{}) @ {} (dedup)",
+                    a.0,
+                    b.0,
+                    format_point(point)
+                ));
             }
         }
     }
@@ -334,6 +435,10 @@ fn event_to_string(event: Event) -> String {
         Event::SegmentEnd { segment } => format!("SegmentEnd({})", segment.0),
         Event::Intersection { a, b } => format!("Intersection({},{})", a.0, b.0),
     }
+}
+
+fn format_point(p: PointRat) -> String {
+    format!("({}, {})", p.x, p.y)
 }
 
 #[cfg(test)]
