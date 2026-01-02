@@ -10,6 +10,14 @@ use sweep_line::sweep::bo::enumerate_point_intersections_with_trace;
 
 const INDEX_SCHEMA: &str = "session-index.v1";
 
+// 性能验证（L 档）常量：方便后期集中修改（与 plans/trace-visualizer.md 保持一致）。
+const PERF_GRID_N: usize = 100;
+const PERF_SPIDER_SPOKES: usize = 64;
+const PERF_SPIDER_RINGS: usize = 40;
+
+const PERF_SPIDER_OUTER_RADIUS: Coord = (SCALE / 100) * 95;
+const PERF_CIRCLE_RADIUS_GRID: i64 = 4096;
+
 fn main() {
     let args = match Args::parse() {
         Ok(v) => v,
@@ -30,8 +38,10 @@ fn main() {
 fn run(args: Args) -> Result<(), String> {
     let out_dir = args.out_dir;
     let curated_dir = out_dir.join("curated");
+    let perf_dir = out_dir.join("perf");
     let random_dir = out_dir.join("random");
     fs::create_dir_all(&curated_dir).map_err(|e| format!("创建目录失败：{}（{}）", curated_dir.display(), e))?;
+    fs::create_dir_all(&perf_dir).map_err(|e| format!("创建目录失败：{}（{}）", perf_dir.display(), e))?;
     fs::create_dir_all(&random_dir).map_err(|e| format!("创建目录失败：{}（{}）", random_dir.display(), e))?;
 
     let mut items: Vec<IndexItem> = Vec::new();
@@ -40,6 +50,14 @@ fn run(args: Args) -> Result<(), String> {
     items.push(write_curated_rational_intersection(&curated_dir)?);
     items.push(write_curated_endpoint_touch(&curated_dir)?);
     items.push(write_curated_preprocess_warnings(&curated_dir)?);
+
+    items.push(write_perf_grid_orthogonal(&perf_dir, PERF_GRID_N)?);
+    items.push(write_perf_grid_diagonal_45(&perf_dir, PERF_GRID_N)?);
+    items.push(write_perf_spider_web(
+        &perf_dir,
+        PERF_SPIDER_SPOKES,
+        PERF_SPIDER_RINGS,
+    )?);
 
     for i in 0..args.random_count {
         let seed = mix_seed(args.seed, i as u64);
@@ -53,9 +71,10 @@ fn run(args: Args) -> Result<(), String> {
         .map_err(|e| format!("写入 index.json 失败：{}（{}）", index_path.display(), e))?;
 
     eprintln!(
-        "已生成：{}（curated={}，random={}），索引：{}",
+        "已生成：{}（curated={}，perf={}，random={}），索引：{}",
         out_dir.display(),
         4,
+        3,
         args.random_count,
         index_path.display()
     );
@@ -295,6 +314,82 @@ fn write_curated_preprocess_warnings(curated_dir: &Path) -> Result<IndexItem, St
     })
 }
 
+fn write_perf_grid_orthogonal(perf_dir: &Path, n: usize) -> Result<IndexItem, String> {
+    let segments = build_perf_grid_orthogonal(n);
+    let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
+        .map_err(|e| format!("运行算法失败（perf-grid-orthogonal）：{:?}", e))?;
+
+    let json = session_v1_to_json_string(&segments, &trace);
+    let file_name = "perf-grid-orthogonal.json";
+    let rel_path = format!("generated/perf/{file_name}");
+    let out_path = perf_dir.join(file_name);
+    fs::write(&out_path, json).map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
+
+    Ok(IndexItem {
+        id: "perf-grid-orthogonal".to_string(),
+        title: format!("性能：正交网格（N={n}）"),
+        path: rel_path,
+        tags: vec![
+            "perf".to_string(),
+            "grid".to_string(),
+            "orthogonal".to_string(),
+            "vertical".to_string(),
+        ],
+        segments: segments.len(),
+        steps: trace.steps.len(),
+        warnings: trace.warnings.len(),
+    })
+}
+
+fn write_perf_grid_diagonal_45(perf_dir: &Path, n: usize) -> Result<IndexItem, String> {
+    let segments = build_perf_grid_diagonal_45(n);
+    let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
+        .map_err(|e| format!("运行算法失败（perf-grid-diagonal-45）：{:?}", e))?;
+
+    let json = session_v1_to_json_string(&segments, &trace);
+    let file_name = "perf-grid-diagonal-45.json";
+    let rel_path = format!("generated/perf/{file_name}");
+    let out_path = perf_dir.join(file_name);
+    fs::write(&out_path, json).map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
+
+    Ok(IndexItem {
+        id: "perf-grid-diagonal-45".to_string(),
+        title: format!("性能：45° 网格（N={n}）"),
+        path: rel_path,
+        tags: vec![
+            "perf".to_string(),
+            "grid".to_string(),
+            "diagonal".to_string(),
+            "rational".to_string(),
+        ],
+        segments: segments.len(),
+        steps: trace.steps.len(),
+        warnings: trace.warnings.len(),
+    })
+}
+
+fn write_perf_spider_web(perf_dir: &Path, spokes: usize, rings: usize) -> Result<IndexItem, String> {
+    let segments = build_perf_spider_web(spokes, rings)?;
+    let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
+        .map_err(|e| format!("运行算法失败（perf-spider-web）：{:?}", e))?;
+
+    let json = session_v1_to_json_string(&segments, &trace);
+    let file_name = "perf-spider-web.json";
+    let rel_path = format!("generated/perf/{file_name}");
+    let out_path = perf_dir.join(file_name);
+    fs::write(&out_path, json).map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
+
+    Ok(IndexItem {
+        id: "perf-spider-web".to_string(),
+        title: format!("性能：蜘蛛网（spokes={spokes}, rings={rings}）"),
+        path: rel_path,
+        tags: vec!["perf".to_string(), "spider".to_string()],
+        segments: segments.len(),
+        steps: trace.steps.len(),
+        warnings: trace.warnings.len(),
+    })
+}
+
 fn write_random_case(
     random_dir: &Path,
     index: usize,
@@ -342,6 +437,108 @@ fn build_random_segments(seed: u64, segments_per_case: usize) -> Segments {
     segments
 }
 
+fn build_perf_grid_orthogonal(n: usize) -> Segments {
+    let mut segments = Segments::new();
+    let coords = linspace_inner(-SCALE, SCALE, n);
+
+    let mut source_index = 0;
+    for &y in &coords {
+        push_segment(
+            &mut segments,
+            PointI64 { x: -SCALE, y },
+            PointI64 { x: SCALE, y },
+            source_index,
+        );
+        source_index += 1;
+    }
+    for &x in &coords {
+        push_segment(
+            &mut segments,
+            PointI64 { x, y: -SCALE },
+            PointI64 { x, y: SCALE },
+            source_index,
+        );
+        source_index += 1;
+    }
+
+    segments
+}
+
+fn build_perf_grid_diagonal_45(n: usize) -> Segments {
+    let mut segments = Segments::new();
+
+    // 为了避免“交点恰好落在边界端点”引发退化事件，45° 网格用更小的边界框。
+    let bound = PERF_SPIDER_OUTER_RADIUS;
+    let intercepts = linspace_inner(-bound, bound, n);
+
+    let mut source_index = 0;
+    for &b in &intercepts {
+        let (a, c) = clip_line_slope_plus1(bound, b);
+        push_segment(&mut segments, a, c, source_index);
+        source_index += 1;
+    }
+    for &c in &intercepts {
+        let (a, b) = clip_line_slope_minus1(bound, c);
+        push_segment(&mut segments, a, b, source_index);
+        source_index += 1;
+    }
+
+    segments
+}
+
+fn build_perf_spider_web(spokes: usize, rings: usize) -> Result<Segments, String> {
+    if spokes < 4 {
+        return Err("spokes 至少为 4".to_string());
+    }
+    if rings < 1 {
+        return Err("rings 至少为 1".to_string());
+    }
+
+    let dirs = select_circle_directions_evenly(spokes * 2, PERF_CIRCLE_RADIUS_GRID)?;
+    let spoke_dirs: Vec<Vec2> = dirs.iter().step_by(2).copied().collect();
+    let ring_dirs: Vec<Vec2> = dirs.iter().skip(1).step_by(2).copied().collect();
+    debug_assert_eq!(spoke_dirs.len(), spokes);
+    debug_assert_eq!(ring_dirs.len(), spokes);
+
+    let outer = PERF_SPIDER_OUTER_RADIUS;
+    let denom = (rings as i128) + 1;
+    let spoke_inner = ((outer as i128) / (denom * 2)) as Coord;
+
+    let mut segments = Segments::new();
+    let mut source_index = 0;
+
+    // spokes：长线段（内半径 -> 外半径），避免大量端点重合在原点。
+    for &d in &spoke_dirs {
+        let a = scale_dir_to_point(d, spoke_inner);
+        let b = scale_dir_to_point(d, outer);
+        if a == b {
+            continue;
+        }
+        push_segment(&mut segments, a, b, source_index);
+        source_index += 1;
+    }
+
+    // rings：每圈用多段折线闭合（顶点角度与 spokes 错开，尽量让 spoke 与 ring 的交点落在边上而非顶点）。
+    for k in 1..=rings {
+        let radius = ((outer as i128) * (k as i128) / denom) as Coord;
+        let mut points: Vec<PointI64> = Vec::with_capacity(spokes);
+        for &d in &ring_dirs {
+            points.push(scale_dir_to_point(d, radius));
+        }
+        for i in 0..spokes {
+            let a = points[i];
+            let b = points[(i + 1) % spokes];
+            if a == b {
+                continue;
+            }
+            push_segment(&mut segments, a, b, source_index);
+            source_index += 1;
+        }
+    }
+
+    Ok(segments)
+}
+
 fn push_segment(segments: &mut Segments, a: PointI64, b: PointI64, source_index: usize) {
     let (a, b) = canonicalize_endpoints(a, b);
     segments.push(Segment { a, b, source_index });
@@ -370,6 +567,213 @@ fn grid_value(idx: i64, steps: i64) -> Coord {
     let signed = idx - max;
     let value = (signed as i128) * (SCALE as i128) / (max as i128);
     value as Coord
+}
+
+fn linspace_inner(min: Coord, max: Coord, count: usize) -> Vec<Coord> {
+    // 生成 count 个“去掉端点”的等分坐标：避免恰好取到边界端点导致交点落在端点。
+    debug_assert!(min < max);
+    let count_i = count as i128;
+    let min_i = min as i128;
+    let max_i = max as i128;
+    let span = max_i - min_i;
+
+    let mut out: Vec<Coord> = Vec::with_capacity(count);
+    for i in 0..count {
+        let v = min_i + ((i as i128 + 1) * span) / (count_i + 1);
+        out.push(v as Coord);
+    }
+    out
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Vec2 {
+    x: i64,
+    y: i64,
+}
+
+fn scale_dir_to_point(dir: Vec2, radius: Coord) -> PointI64 {
+    let x = ((dir.x as i128) * (radius as i128) / (PERF_CIRCLE_RADIUS_GRID as i128)) as Coord;
+    let y = ((dir.y as i128) * (radius as i128) / (PERF_CIRCLE_RADIUS_GRID as i128)) as Coord;
+    PointI64 { x, y }
+}
+
+fn select_circle_directions_evenly(count: usize, radius: i64) -> Result<Vec<Vec2>, String> {
+    if count == 0 {
+        return Err("count 不能为 0".to_string());
+    }
+    if radius <= 0 {
+        return Err("radius 必须为正数".to_string());
+    }
+
+    let dirs = build_circle_directions(radius);
+    if dirs.len() < count {
+        return Err(format!(
+            "圆周方向数量不足：需要 {count}，实际 {}",
+            dirs.len()
+        ));
+    }
+
+    let mut out: Vec<Vec2> = Vec::with_capacity(count);
+    for i in 0..count {
+        let idx = (i * dirs.len()) / count;
+        out.push(dirs[idx]);
+    }
+
+    // 如果等分取样碰到重复（极端情况下可能发生），用线性扫描补齐。
+    let mut seen = std::collections::BTreeSet::<(i64, i64)>::new();
+    let mut unique: Vec<Vec2> = Vec::with_capacity(count);
+    for v in out.into_iter() {
+        if seen.insert((v.x, v.y)) {
+            unique.push(v);
+        }
+    }
+    if unique.len() == count {
+        return Ok(unique);
+    }
+
+    for v in dirs {
+        if unique.len() == count {
+            break;
+        }
+        if seen.insert((v.x, v.y)) {
+            unique.push(v);
+        }
+    }
+
+    if unique.len() != count {
+        return Err(format!("无法补齐方向向量：需要 {count}，实际 {}", unique.len()));
+    }
+    Ok(unique)
+}
+
+fn build_circle_directions(radius: i64) -> Vec<Vec2> {
+    let r2 = (radius as u128) * (radius as u128);
+    let mut raw: Vec<Vec2> = Vec::new();
+    for x in 0..=radius {
+        let rem = r2 - (x as u128) * (x as u128);
+        let y = isqrt_u128(rem) as i64;
+        push_circle_sym_points(&mut raw, x, y);
+    }
+
+    raw.retain(|v| !(v.x == 0 && v.y == 0));
+    raw.sort_by(|a, b| angle_cmp(*a, *b));
+    raw.dedup_by(|a, b| a.x == b.x && a.y == b.y);
+    raw
+}
+
+fn push_circle_sym_points(out: &mut Vec<Vec2>, x: i64, y: i64) {
+    let candidates = [
+        (x, y),
+        (y, x),
+        (-x, y),
+        (-y, x),
+        (x, -y),
+        (y, -x),
+        (-x, -y),
+        (-y, -x),
+    ];
+    for (x, y) in candidates {
+        out.push(Vec2 { x, y });
+    }
+}
+
+fn angle_cmp(a: Vec2, b: Vec2) -> core::cmp::Ordering {
+    let ha = is_upper_half(a);
+    let hb = is_upper_half(b);
+    if ha != hb {
+        // upper half-plane 优先（从 +x 轴开始逆时针）
+        return hb.cmp(&ha);
+    }
+
+    let cross = (a.x as i128) * (b.y as i128) - (a.y as i128) * (b.x as i128);
+    if cross != 0 {
+        return if cross > 0 {
+            core::cmp::Ordering::Less
+        } else {
+            core::cmp::Ordering::Greater
+        };
+    }
+
+    // 同方向：用坐标稳定排序（避免平台差异）。
+    match a.x.cmp(&b.x) {
+        core::cmp::Ordering::Equal => a.y.cmp(&b.y),
+        o => o,
+    }
+}
+
+fn is_upper_half(v: Vec2) -> bool {
+    v.y > 0 || (v.y == 0 && v.x >= 0)
+}
+
+fn isqrt_u128(n: u128) -> u128 {
+    if n < 2 {
+        return n;
+    }
+
+    // Newton-Raphson：确定性、无依赖。
+    let mut x0 = n;
+    let mut x1 = (x0 + 1) / 2;
+    while x1 < x0 {
+        x0 = x1;
+        x1 = (x1 + n / x1) / 2;
+    }
+    x0
+}
+
+fn clip_line_slope_plus1(bound: Coord, intercept: Coord) -> (PointI64, PointI64) {
+    // y = x + intercept
+    let mut points: Vec<PointI64> = Vec::with_capacity(4);
+
+    let y = -bound + intercept;
+    if y >= -bound && y <= bound {
+        points.push(PointI64 { x: -bound, y });
+    }
+    let y = bound + intercept;
+    if y >= -bound && y <= bound {
+        points.push(PointI64 { x: bound, y });
+    }
+
+    let x = -bound - intercept;
+    if x >= -bound && x <= bound {
+        points.push(PointI64 { x, y: -bound });
+    }
+    let x = bound - intercept;
+    if x >= -bound && x <= bound {
+        points.push(PointI64 { x, y: bound });
+    }
+
+    points.sort();
+    points.dedup();
+    debug_assert_eq!(points.len(), 2, "clip_line_slope_plus1 应得到 2 个端点");
+    (points[0], points[1])
+}
+
+fn clip_line_slope_minus1(bound: Coord, intercept: Coord) -> (PointI64, PointI64) {
+    // y = -x + intercept
+    let mut points: Vec<PointI64> = Vec::with_capacity(4);
+
+    let y = bound + intercept;
+    if y >= -bound && y <= bound {
+        points.push(PointI64 { x: -bound, y });
+    }
+    let y = -bound + intercept;
+    if y >= -bound && y <= bound {
+        points.push(PointI64 { x: bound, y });
+    }
+
+    let x = intercept + bound;
+    if x >= -bound && x <= bound {
+        points.push(PointI64 { x, y: -bound });
+    }
+    let x = intercept - bound;
+    if x >= -bound && x <= bound {
+        points.push(PointI64 { x, y: bound });
+    }
+
+    points.sort();
+    points.dedup();
+    debug_assert_eq!(points.len(), 2, "clip_line_slope_minus1 应得到 2 个端点");
+    (points[0], points[1])
 }
 
 fn mix_seed(base: u64, salt: u64) -> u64 {
@@ -542,6 +946,48 @@ mod tests {
         let json_a = session_v1_to_json_string(&segments, &trace_a);
 
         let segments_b = build_random_segments(seed, 12);
+        let (_hits_b, trace_b) = enumerate_point_intersections_with_trace(&segments_b).unwrap();
+        let json_b = session_v1_to_json_string(&segments_b, &trace_b);
+
+        assert_eq!(json_a, json_b);
+        assert!(json_a.starts_with("{\"schema\":\"session.v1\""));
+    }
+
+    #[test]
+    fn perf_grid_orthogonal_is_deterministic() {
+        let segments_a = build_perf_grid_orthogonal(20);
+        let (_hits_a, trace_a) = enumerate_point_intersections_with_trace(&segments_a).unwrap();
+        let json_a = session_v1_to_json_string(&segments_a, &trace_a);
+
+        let segments_b = build_perf_grid_orthogonal(20);
+        let (_hits_b, trace_b) = enumerate_point_intersections_with_trace(&segments_b).unwrap();
+        let json_b = session_v1_to_json_string(&segments_b, &trace_b);
+
+        assert_eq!(json_a, json_b);
+        assert!(json_a.starts_with("{\"schema\":\"session.v1\""));
+    }
+
+    #[test]
+    fn perf_grid_diagonal_45_is_deterministic() {
+        let segments_a = build_perf_grid_diagonal_45(20);
+        let (_hits_a, trace_a) = enumerate_point_intersections_with_trace(&segments_a).unwrap();
+        let json_a = session_v1_to_json_string(&segments_a, &trace_a);
+
+        let segments_b = build_perf_grid_diagonal_45(20);
+        let (_hits_b, trace_b) = enumerate_point_intersections_with_trace(&segments_b).unwrap();
+        let json_b = session_v1_to_json_string(&segments_b, &trace_b);
+
+        assert_eq!(json_a, json_b);
+        assert!(json_a.starts_with("{\"schema\":\"session.v1\""));
+    }
+
+    #[test]
+    fn perf_spider_web_is_deterministic() {
+        let segments_a = build_perf_spider_web(16, 6).unwrap();
+        let (_hits_a, trace_a) = enumerate_point_intersections_with_trace(&segments_a).unwrap();
+        let json_a = session_v1_to_json_string(&segments_a, &trace_a);
+
+        let segments_b = build_perf_spider_web(16, 6).unwrap();
         let (_hits_b, trace_b) = enumerate_point_intersections_with_trace(&segments_b).unwrap();
         let json_b = session_v1_to_json_string(&segments_b, &trace_b);
 

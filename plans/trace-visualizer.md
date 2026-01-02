@@ -87,10 +87,10 @@
   - 规划用例（Rust 生成，写入 `viewer/generated/`，不提交生成结果）：
     - `perf-grid-orthogonal`：`GRID_N` 条水平长线段 + `GRID_N` 条垂直长线段，形成 `GRID_N^2` 个点交（含大量 `VerticalFlush` 命中）。
     - `perf-grid-diagonal-45`：`GRID_N` 条斜率 `+1` 长线段 + `GRID_N` 条斜率 `-1` 长线段，形成大量有理数交点事件（steps 多）。
-    - `perf-spider-web`：`SPIDER_SPOKES` 条辐射线 + `SPIDER_RINGS` 圈环（多段折线）构成“蜘蛛网”，包含大量多段同点端点接触（退化压力）。
+    - `perf-spider-web`：`SPIDER_SPOKES` 条辐射线 + `SPIDER_RINGS` 圈环（多段折线）构成“蜘蛛网”，包含大量交点（spoke×ring）与环顶点端点接触。
   - 验收动作（人工）：加载上述 L 档用例，检查缩放/拖拽不卡顿，10fps 播放可用；必要时在 viewer 增加“降载开关”（例如隐藏 active 列表/关闭累计交点）。
-  - [ ] Rust：为上述 perf 用例实现确定性生成器（常量 `GRID_N/SPIDER_*`）。
-  - [ ] Rust：为 perf 用例增加稳定性回归测试（至少“同参数两次生成字节一致”）。
+  - [x] Rust：为上述 perf 用例实现确定性生成器（常量 `GRID_N/SPIDER_*`）。
+  - [x] Rust：为 perf 用例增加稳定性回归测试（至少“同参数两次生成字节一致”）。
   - [ ] viewer：可从左侧列表加载 perf 用例并正常回放。
   - [ ] （可选）viewer：增加“降载开关”以便极大输入下仍可操作。
   - [ ] 人工验收并勾选本条（记录机器/浏览器与主观体验）。
