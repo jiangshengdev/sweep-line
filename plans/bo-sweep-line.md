@@ -23,7 +23,7 @@
 - `trace.json` 第一版不引入依赖：手写最小 JSON，固定字段顺序与数组输出顺序，避免 `HashMap` 迭代导致的非确定性。
 
 ## 待办
-[ ] 定义核心类型（`SegmentId`、`PointI64`、`PointRat`、`Intersection`、`IntersectionKind`）与确定性的 ID 分配规则。
+[x] 定义核心类型（`SegmentId`、`PointI64`、`PointRat`、`SegmentIntersection`、`PointIntersectionKind`）与确定性的 ID 分配规则。
 
 [x] 实现固定点量化：`f64 -> i64`（比例 `1e9`，`round`，拒绝非有限值与超出 `[-1,1]` 的输入）。
 
@@ -32,12 +32,12 @@
   - 端点规范化（例如按 `(x,y)` 字典序排序端点），使“反向同一线段”可合并。
   - 检测完全重复线段并去重（告警，保留一个代表）。
 
-[ ] 在固定点上实现精确谓词（std-only）：
+[x] 在固定点上实现精确谓词（std-only）：
   - [x] `orient(a,b,c)`：用 `i128` 叉积。
   - [x] `on_segment(a,b,p)` 与包围盒判断：纯整数比较。
-  - [ ] 点交分类：真交（内部–内部）、端点接触（端点–端点、端点–内部）；共线情况留到第二阶段输出重叠线段。
+  - [x] 点交分类：真交（内部–内部）、端点接触（端点–端点、端点–内部）；共线重叠用 `CollinearOverlap` 占位，第二阶段再输出“最大重叠段集合”。
 
-[ ] 定义交点的有理数表示（std-only）：
+[x] 定义交点的有理数表示（std-only）：
   - [x] 实现基础 `Rational(num/den)`：`i128` 表示并用 `gcd` 约分，支持稳定相等性与比较。
   - [x] 定义交点坐标（例如 `PointRat`）并用于事件排序与 trace；渲染阶段再转 `f64`（只影响像素，不影响逻辑）。
 
