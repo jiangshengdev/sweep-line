@@ -132,17 +132,23 @@ function loadSettingsFromStorage() {
   }
 
   const cumulativeSizeText = safeStorageGetItem(storageKeys.intersectionRadiusCumulative);
-  const cumulativeSize = Number(cumulativeSizeText);
-  if (Number.isFinite(cumulativeSize)) {
-    appState.settings.intersectionRadiusCumulative = roundToHalf(
-      clampNumber(cumulativeSize, 0.5, 6),
-    );
+  if (cumulativeSizeText !== null) {
+    const cumulativeSize = Number(cumulativeSizeText);
+    if (Number.isFinite(cumulativeSize)) {
+      appState.settings.intersectionRadiusCumulative = roundToHalf(
+        clampNumber(cumulativeSize, 0.5, 6),
+      );
+    }
   }
 
   const currentSizeText = safeStorageGetItem(storageKeys.intersectionRadiusCurrent);
-  const currentSize = Number(currentSizeText);
-  if (Number.isFinite(currentSize)) {
-    appState.settings.intersectionRadiusCurrent = roundToHalf(clampNumber(currentSize, 0.5, 10));
+  if (currentSizeText !== null) {
+    const currentSize = Number(currentSizeText);
+    if (Number.isFinite(currentSize)) {
+      appState.settings.intersectionRadiusCurrent = roundToHalf(
+        clampNumber(currentSize, 0.5, 10),
+      );
+    }
   }
 
   const boldActive = safeStorageGetItem(storageKeys.boldActiveSegments);
