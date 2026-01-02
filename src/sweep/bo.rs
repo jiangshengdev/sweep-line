@@ -627,4 +627,37 @@ mod tests {
         assert_eq!(out1, out2);
         assert_eq!(t1.to_json_string(), t2.to_json_string());
     }
+
+    #[test]
+    fn handles_many_vertical_segments_stably() {
+        let n = 50_i64;
+        let mut segments = Segments::new();
+        let horizontal = segments.push(Segment {
+            a: PointI64 { x: -1, y: 0 },
+            b: PointI64 { x: n + 1, y: 0 },
+            source_index: 0,
+        });
+        for i in 0..n {
+            segments.push(Segment {
+                a: PointI64 { x: i, y: -10 },
+                b: PointI64 { x: i, y: 10 },
+                source_index: (i + 1) as usize,
+            });
+        }
+
+        let (out1, t1) = enumerate_point_intersections_with_trace(&segments).unwrap();
+        let (out2, t2) = enumerate_point_intersections_with_trace(&segments).unwrap();
+        assert_eq!(out1, out2);
+        assert_eq!(t1.to_json_string(), t2.to_json_string());
+
+        assert_eq!(out1.len() as i64, n);
+        assert!(out1.iter().all(|it| it.a == horizontal || it.b == horizontal));
+
+        let flush_count = t1
+            .steps
+            .iter()
+            .filter(|s| s.kind == TraceStepKind::VerticalFlush)
+            .count();
+        assert_eq!(flush_count as i64, n);
+    }
 }
