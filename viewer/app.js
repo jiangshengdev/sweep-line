@@ -814,7 +814,8 @@ function drawIntersections(ctx, intersections, scale, isCurrentStep, palette) {
   const radius = isCurrentStep
     ? appState.settings.intersectionRadiusCurrent
     : appState.settings.intersectionRadiusCumulative;
-  const strokeWidth = isCurrentStep ? 1.5 : 1.25;
+  const baseStrokeWidth = isCurrentStep ? 1.5 : 1.25;
+  const strokeWidth = Math.min(baseStrokeWidth, radius);
   const alpha = isCurrentStep ? 1.0 : 0.85;
   ctx.save();
   ctx.globalAlpha = alpha;
