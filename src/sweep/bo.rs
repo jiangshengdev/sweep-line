@@ -596,4 +596,35 @@ mod tests {
         assert_eq!(out1, out2);
         assert_eq!(t1.to_json_string(), t2.to_json_string());
     }
+
+    #[test]
+    fn handles_multiple_segments_intersecting_at_same_point_stably() {
+        let mut segments = Segments::new();
+        segments.push(Segment {
+            a: PointI64 { x: 0, y: 0 },
+            b: PointI64 { x: 10, y: 10 },
+            source_index: 0,
+        });
+        segments.push(Segment {
+            a: PointI64 { x: 0, y: 10 },
+            b: PointI64 { x: 10, y: 0 },
+            source_index: 1,
+        });
+        segments.push(Segment {
+            a: PointI64 { x: 0, y: 5 },
+            b: PointI64 { x: 10, y: 5 },
+            source_index: 2,
+        });
+
+        let (out1, t1) = enumerate_point_intersections_with_trace(&segments).unwrap();
+        let (out2, t2) = enumerate_point_intersections_with_trace(&segments).unwrap();
+
+        let p = PointRat {
+            x: Rational::from_int(5),
+            y: Rational::from_int(5),
+        };
+        assert!(out1.iter().any(|it| it.point == p));
+        assert_eq!(out1, out2);
+        assert_eq!(t1.to_json_string(), t2.to_json_string());
+    }
 }
