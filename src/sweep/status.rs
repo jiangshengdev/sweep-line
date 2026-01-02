@@ -40,7 +40,42 @@ pub trait SweepStatus {
     fn pred(&self, id: SegmentId) -> Option<SegmentId>;
     fn succ(&self, id: SegmentId) -> Option<SegmentId>;
 
-    fn range_by_y(&self, segments: &Segments, y_min: Rational, y_max: Rational) -> Vec<SegmentId>;
+    fn lower_bound_by_y(&self, segments: &Segments, y_min: Rational) -> Option<SegmentId>;
+
+    fn range_by_y(&self, segments: &Segments, y_min: Rational, y_max: Rational) -> Vec<SegmentId> {
+        let (y_min, y_max) = if y_min <= y_max { (y_min, y_max) } else { (y_max, y_min) };
+        let mut out = Vec::new();
+
+        let mut current = self.lower_bound_by_y(segments, y_min);
+        while let Some(id) = current {
+            let y = y_at_x(segments.get(id), self.sweep_x());
+            if y > y_max {
+                break;
+            }
+            out.push(id);
+            current = self.succ(id);
+        }
+
+        out
+    }
+
+    fn reorder_segments(
+        &mut self,
+        segments: &Segments,
+        ids: &[SegmentId],
+    ) -> Result<(), SweepStatusError> {
+        let mut ids: Vec<SegmentId> = ids.to_vec();
+        ids.sort();
+        ids.dedup();
+
+        for id in &ids {
+            self.remove(*id)?;
+        }
+        for id in &ids {
+            self.insert(segments, *id)?;
+        }
+        Ok(())
+    }
 
     fn snapshot_order(&self) -> Vec<SegmentId>;
 
@@ -119,17 +154,28 @@ impl SweepStatus for VecSweepStatus {
         self.active.get(index + 1).copied()
     }
 
+    fn lower_bound_by_y(&self, segments: &Segments, y_min: Rational) -> Option<SegmentId> {
+        let sweep_x = self.sweep_x;
+        let index = self
+            .active
+            .partition_point(|id| y_at_x(segments.get(*id), sweep_x) < y_min);
+        self.active.get(index).copied()
+    }
+
     fn range_by_y(&self, segments: &Segments, y_min: Rational, y_max: Rational) -> Vec<SegmentId> {
         let (y_min, y_max) = if y_min <= y_max { (y_min, y_max) } else { (y_max, y_min) };
         let sweep_x = self.sweep_x;
 
+        let start = self
+            .active
+            .partition_point(|id| y_at_x(segments.get(*id), sweep_x) < y_min);
         let mut out = Vec::new();
-        for id in &self.active {
-            let segment = segments.get(*id);
-            let y = y_at_x(segment, sweep_x);
-            if y >= y_min && y <= y_max {
-                out.push(*id);
+        for id in &self.active[start..] {
+            let y = y_at_x(segments.get(*id), sweep_x);
+            if y > y_max {
+                break;
             }
+            out.push(*id);
         }
         out
     }
@@ -173,7 +219,7 @@ struct TreapNode {
 ///
 /// 说明：
 /// - 这是后续高性能实现的基础版本；
-/// - `range_by_y` 目前采用中序遍历 + 过滤 + 早停，先保证稳定性与语义正确；
+/// - `range_by_y` 通过 `lower_bound_by_y + succ` 迭代实现，先保证稳定性与语义正确；
 /// - 由于比较器依赖 `sweep_x`，调用方必须遵守“事件点批处理 + `x+ε` 语义”的使用约定。
 #[derive(Clone, Debug)]
 pub struct TreapSweepStatus {
@@ -324,35 +370,6 @@ impl TreapSweepStatus {
             current = self.nodes[id.0].right;
         }
     }
-
-    fn inorder_range_by_y(
-        &self,
-        segments: &Segments,
-        y_min: Rational,
-        y_max: Rational,
-        out: &mut Vec<SegmentId>,
-    ) {
-        let mut stack: Vec<SegmentId> = Vec::new();
-        let mut current = self.root;
-
-        while current.is_some() || !stack.is_empty() {
-            while let Some(id) = current {
-                stack.push(id);
-                current = self.nodes[id.0].left;
-            }
-
-            let id = stack.pop().expect("栈不应为空");
-            let y = y_at_x(segments.get(id), self.sweep_x);
-            if y > y_max {
-                return;
-            }
-            if y >= y_min {
-                out.push(id);
-            }
-
-            current = self.nodes[id.0].right;
-        }
-    }
 }
 
 impl SweepStatus for TreapSweepStatus {
@@ -497,11 +514,21 @@ impl SweepStatus for TreapSweepStatus {
         None
     }
 
-    fn range_by_y(&self, segments: &Segments, y_min: Rational, y_max: Rational) -> Vec<SegmentId> {
-        let (y_min, y_max) = if y_min <= y_max { (y_min, y_max) } else { (y_max, y_min) };
-        let mut out = Vec::new();
-        self.inorder_range_by_y(segments, y_min, y_max, &mut out);
-        out
+    fn lower_bound_by_y(&self, segments: &Segments, y_min: Rational) -> Option<SegmentId> {
+        let mut current = self.root;
+        let mut candidate = None;
+
+        while let Some(id) = current {
+            let y = y_at_x(segments.get(id), self.sweep_x);
+            if y < y_min {
+                current = self.nodes[id.0].right;
+            } else {
+                candidate = Some(id);
+                current = self.nodes[id.0].left;
+            }
+        }
+
+        candidate
     }
 
     fn snapshot_order(&self) -> Vec<SegmentId> {

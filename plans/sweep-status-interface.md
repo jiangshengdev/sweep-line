@@ -24,25 +24,25 @@
   - 第三方库引入与数值策略升级（暂只假设固定点 `1e9` + `i128` 计算）。
 
 ## 待办
-[ ] 列出算法侧最小需求清单：`insert/remove`、`pred/succ`、`neighbors`、`swap/reorder`、`range_by_y`、`snapshot_for_trace`、`set_sweep_context`。
+[x] 列出算法侧最小需求清单（已落到代码接口中）：`set_sweep_x/sweep_x`、`insert/remove`、`pred/succ`、`lower_bound_by_y/range_by_y`、`reorder_segments`（可覆盖 swap）、`snapshot_order`、`validate_invariants`。
 
-[ ] 定义上下文类型与语义：`SweepX`（量化/有理），以及“状态结构始终表示 `x+ε` 的顺序”等约定。
+[x] 定义上下文类型与语义：当前用 `Rational` 表示 `sweep_x`；状态结构始终表示 `x+ε` 的顺序（见上文约定）。
 
-[ ] 规定严格全序比较合同：`cmp(seg_a, seg_b, ctx)` 必须确定性、无随机/哈希依赖；处理“同点相交时相等”的规则（用 `x+ε` 语义 + `SegmentId` 兜底）。
+[x] 规定严格全序比较合同：`cmp(seg_a, seg_b, ctx)` 必须确定性、无随机/哈希依赖；处理“同点相交时相等”的规则（用 `x+ε` 语义 + `SegmentId` 兜底）。
 
 [x] 实现比较器关键构件：非垂直线段的 `y_at_x(sweep_x: Rational) -> Rational` 与 `cmp_segments_at_x_plus_epsilon(...)`（先比 y，y 相等再比斜率 `dy/dx`，仍相等用 `SegmentId` 兜底）。
 
 [x] 定义 `SweepStatus` 接口并给出一个确定性基准实现（例如基于 `Vec<SegmentId>` 的参考实现），用于在不引入 Treap 复杂度的情况下先验证 `insert/remove`、`pred/succ`、`range_by_y` 的语义与稳定性。
 
-[ ] 设计范围查询 API：提供 `lower_bound_y(y)` + `next(cursor)` 或 `range_iter(ymin,ymax)` 的抽象（保证可做 `O(log n + m)` 的垂直查询）。
+[x] 设计范围查询 API：提供 `lower_bound_by_y(y_min)`；`range_by_y(ymin,ymax)` 默认用 `lower_bound_by_y + succ` 迭代并在 `y>ymax` 时早停（先保证稳定性，后续可做 cursor 优化）。
 
-[ ] 设计“句柄/定位”策略：是否需要 `SegmentId -> NodeHandle` 的映射以支持稳定删除与 `O(log n)` 邻居查询；并规定垂直线段是否禁止插入状态结构（建议禁止）。
+[x] 设计“句柄/定位”策略：节点以 `SegmentId` 直接定位（`Vec` 下标）；删除不依赖比较器；并明确垂直线段禁止插入状态结构。
 
-[x] 实现确定性 Treap 参考实现：新增 `TreapSweepStatus`，优先级由 `SegmentId` 固定混洗函数生成（无 RNG），实现 `insert/remove/pred/succ/snapshot_order/validate_invariants`；`range_by_y` 先用中序遍历 + 过滤 + 早停，优先保证稳定性与语义正确。
+[x] 实现确定性 Treap 参考实现：新增 `TreapSweepStatus`，优先级由 `SegmentId` 固定混洗函数生成（无 RNG），实现 `insert/remove/pred/succ/snapshot_order/validate_invariants`；`range_by_y` 通过 `lower_bound_by_y + succ` 迭代，优先保证稳定性与语义正确。
 
-[ ] 规划测试与验证：为接口写单元测试（插入/删除回归、邻居一致性、range 查询正确性、同输入多次运行 snapshot 一致性），并加入 `validate_invariants()` 供 debug/测试使用。
+[x] 规划测试与验证：已为 `VecSweepStatus` 与 `TreapSweepStatus` 覆盖插入/删除、pred/succ、range 查询稳定顺序等单测，并提供 `validate_invariants()`。
 
-[ ] 规划 trace 支撑：定义 `snapshot_order()`/`debug_dump()` 返回稳定顺序的 `Vec<SegmentId>` 以便生成 `trace.json`。
+[x] 规划 trace 支撑：提供 `snapshot_order()` 返回稳定顺序的 `Vec<SegmentId>` 以便生成 `trace.json`。
 
 ## 后续扩展（可选）
 - 若 trace/可视化强依赖命中时的 y：将 `range_by_y` 扩展为返回 `(SegmentId, y_at_x)`，其中 `y_at_x` 用固定点/有理数表示并保持稳定约分。
