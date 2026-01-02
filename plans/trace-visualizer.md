@@ -89,6 +89,11 @@
     - `perf-grid-diagonal-45`：`GRID_N` 条斜率 `+1` 长线段 + `GRID_N` 条斜率 `-1` 长线段，形成大量有理数交点事件（steps 多）。
     - `perf-spider-web`：`SPIDER_SPOKES` 条辐射线 + `SPIDER_RINGS` 圈环（多段折线）构成“蜘蛛网”，包含大量多段同点端点接触（退化压力）。
   - 验收动作（人工）：加载上述 L 档用例，检查缩放/拖拽不卡顿，10fps 播放可用；必要时在 viewer 增加“降载开关”（例如隐藏 active 列表/关闭累计交点）。
+  - [ ] Rust：为上述 perf 用例实现确定性生成器（常量 `GRID_N/SPIDER_*`）。
+  - [ ] Rust：为 perf 用例增加稳定性回归测试（至少“同参数两次生成字节一致”）。
+  - [ ] viewer：可从左侧列表加载 perf 用例并正常回放。
+  - [ ] （可选）viewer：增加“降载开关”以便极大输入下仍可操作。
+  - [ ] 人工验收并勾选本条（记录机器/浏览器与主观体验）。
 [x] 准备 2–3 个可复现示例 `viewer/examples/*.json`（与单测/手工用例一致），用于快速验收与回归。
 [x] Rust 示例生成器：输出大量可复现的 `viewer/generated/*.json`，并生成 `viewer/generated/index.json`（稳定顺序，供前端自动加载列表）。
 [x] 前端左侧列表：启动时自动加载 `viewer/generated/index.json`（不存在则回退到 `viewer/examples/index.json`），点击条目自动加载 session。
