@@ -7,6 +7,7 @@ use crate::rational::Rational;
 
 #[derive(Clone, Debug, Default)]
 pub struct Trace {
+    pub warnings: Vec<String>,
     pub steps: Vec<TraceStep>,
 }
 
@@ -75,6 +76,8 @@ impl Trace {
 fn write_trace_json(trace: &Trace, out: &mut String) {
     out.push('{');
     write_kv_str(out, "schema", "trace.v1");
+    out.push(',');
+    write_kv_string_array(out, "warnings", &trace.warnings);
     out.push(',');
     out.push('"');
     out.push_str("steps");
@@ -283,7 +286,7 @@ mod tests {
         let json = trace.to_json_string();
         assert_eq!(
             json,
-            "{\"schema\":\"trace.v1\",\"steps\":[{\"kind\":\"PointBatch\",\"sweep_x\":{\"num\":\"5\",\"den\":\"1\"},\"point\":{\"x\":{\"num\":\"5\",\"den\":\"1\"},\"y\":{\"num\":\"-2\",\"den\":\"1\"}},\"events\":[\"SegmentStart(1)\"],\"active\":[1,3],\"intersections\":[{\"a\":1,\"b\":3,\"kind\":\"EndpointTouch\",\"point\":{\"x\":{\"num\":\"5\",\"den\":\"1\"},\"y\":{\"num\":\"-2\",\"den\":\"1\"}}}],\"notes\":[\"包含引号: \\\" 和换行\\n\"]}]}"
+            "{\"schema\":\"trace.v1\",\"warnings\":[],\"steps\":[{\"kind\":\"PointBatch\",\"sweep_x\":{\"num\":\"5\",\"den\":\"1\"},\"point\":{\"x\":{\"num\":\"5\",\"den\":\"1\"},\"y\":{\"num\":\"-2\",\"den\":\"1\"}},\"events\":[\"SegmentStart(1)\"],\"active\":[1,3],\"intersections\":[{\"a\":1,\"b\":3,\"kind\":\"EndpointTouch\",\"point\":{\"x\":{\"num\":\"5\",\"den\":\"1\"},\"y\":{\"num\":\"-2\",\"den\":\"1\"}}}],\"notes\":[\"包含引号: \\\" 和换行\\n\"]}]}"
         );
     }
 }

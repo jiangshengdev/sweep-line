@@ -1,6 +1,7 @@
 pub mod geom;
 pub mod preprocess;
 pub mod rational;
+pub mod run;
 pub mod sweep;
 pub mod trace;
 
