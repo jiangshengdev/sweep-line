@@ -1,0 +1,95 @@
+{
+  "schema": "session.v1",
+  "fixed": { "scale": "1000000000" },
+  "segments": [
+    {
+      "id": 0,
+      "source_index": 0,
+      "a": { "x": -1000000000, "y": 0 },
+      "b": { "x": 1000000000, "y": 0 }
+    },
+    {
+      "id": 1,
+      "source_index": 1,
+      "a": { "x": 0, "y": 500000000 },
+      "b": { "x": 1000000000, "y": -1000000000 }
+    }
+  ],
+  "trace": {
+    "schema": "trace.v1",
+    "warnings": [],
+    "steps": [
+      {
+        "kind": "PointBatch",
+        "sweep_x": { "num": "-1000000000", "den": "1" },
+        "point": {
+          "x": { "num": "-1000000000", "den": "1" },
+          "y": { "num": "0", "den": "1" }
+        },
+        "events": ["SegmentStart(0)"],
+        "active": [0],
+        "intersections": [],
+        "notes": ["Insert(0)"]
+      },
+      {
+        "kind": "PointBatch",
+        "sweep_x": { "num": "0", "den": "1" },
+        "point": {
+          "x": { "num": "0", "den": "1" },
+          "y": { "num": "500000000", "den": "1" }
+        },
+        "events": ["SegmentStart(1)"],
+        "active": [0, 1],
+        "intersections": [],
+        "notes": ["Insert(1)"]
+      },
+      {
+        "kind": "PointBatch",
+        "sweep_x": { "num": "1000000000", "den": "3" },
+        "point": {
+          "x": { "num": "1000000000", "den": "3" },
+          "y": { "num": "0", "den": "1" }
+        },
+        "events": ["Intersection(0,1)"],
+        "active": [1, 0],
+        "intersections": [
+          {
+            "a": 0,
+            "b": 1,
+            "kind": "Proper",
+            "point": {
+              "x": { "num": "1000000000", "den": "3" },
+              "y": { "num": "0", "den": "1" }
+            }
+          }
+        ],
+        "notes": ["IntersectionEvent(0,1)", "Reorder(0,1)"]
+      },
+      {
+        "kind": "PointBatch",
+        "sweep_x": { "num": "1000000000", "den": "1" },
+        "point": {
+          "x": { "num": "1000000000", "den": "1" },
+          "y": { "num": "-1000000000", "den": "1" }
+        },
+        "events": ["SegmentEnd(1)"],
+        "active": [0],
+        "intersections": [],
+        "notes": ["Remove(1)"]
+      },
+      {
+        "kind": "PointBatch",
+        "sweep_x": { "num": "1000000000", "den": "1" },
+        "point": {
+          "x": { "num": "1000000000", "den": "1" },
+          "y": { "num": "0", "den": "1" }
+        },
+        "events": ["SegmentEnd(0)"],
+        "active": [],
+        "intersections": [],
+        "notes": ["Remove(0)"]
+      }
+    ]
+  }
+}
+

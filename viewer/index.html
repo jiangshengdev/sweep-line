@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>扫描线回放器（trace.v1）</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="toolbar__left">
+        <label class="file-input">
+          <span>加载 session.json</span>
+          <input id="file-input" type="file" accept="application/json" />
+        </label>
+        <button id="reset-view" type="button">重置视图</button>
+      </div>
+      <div class="toolbar__right">
+        <div class="playback">
+          <button id="prev-step" type="button" title="←">上一步</button>
+          <button id="play-pause" type="button" title="Space">播放</button>
+          <button id="next-step" type="button" title="→">下一步</button>
+          <label class="speed">
+            速度
+            <select id="speed">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </label>
+        </div>
+        <div class="timeline">
+          <input id="step-slider" type="range" min="0" max="0" value="0" />
+          <span id="step-label" class="mono">0/0</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section id="viewport" class="viewport" aria-label="可视化画布区域">
+        <div class="canvas-stack">
+          <canvas id="static-canvas"></canvas>
+          <canvas id="dynamic-canvas"></canvas>
+        </div>
+        <div id="drop-hint" class="drop-hint">
+          拖拽 <span class="mono">session.json</span> 到此处加载
+        </div>
+      </section>
+
+      <aside class="side-panel" aria-label="信息面板">
+        <section class="panel-section">
+          <h2>会话</h2>
+          <div id="session-meta" class="kv mono"></div>
+        </section>
+
+        <section class="panel-section">
+          <h2>告警</h2>
+          <ol id="warnings" class="list"></ol>
+        </section>
+
+        <section class="panel-section">
+          <h2>步骤</h2>
+          <div id="step-meta" class="kv mono"></div>
+          <details open>
+            <summary>events</summary>
+            <ol id="events" class="list mono"></ol>
+          </details>
+          <details>
+            <summary>notes</summary>
+            <ol id="notes" class="list mono"></ol>
+          </details>
+        </section>
+
+        <section class="panel-section">
+          <h2>active / intersections</h2>
+          <details open>
+            <summary>active</summary>
+            <ol id="active" class="list mono"></ol>
+          </details>
+          <details open>
+            <summary>intersections</summary>
+            <table class="table mono">
+              <thead>
+                <tr>
+                  <th>a</th>
+                  <th>b</th>
+                  <th>kind</th>
+                  <th>point</th>
+                </tr>
+              </thead>
+              <tbody id="intersections"></tbody>
+            </table>
+          </details>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="statusbar">
+      <span id="status">未加载数据</span>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
+

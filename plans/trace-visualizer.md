@@ -23,6 +23,16 @@
 
 - `fixed.scale` 用字符串承载（与 `trace.v1` 的 `Rational.num/den` 一致），避免 JS 数字精度问题。
 - 坐标统一使用“量化后”的整数单位；渲染时用 `x / scale`、`y / scale` 映射回 `[-1, 1]` 视口（或再做 viewport 变换）。
+- 字段顺序（建议/用于稳定输出与回归对比）：
+  - `session.v1`：`schema`、`fixed`、`segments`、`trace`。
+  - `fixed`：`scale`。
+  - `segment`：`id`、`source_index`、`a`、`b`（点为 `x`、`y`）。
+  - `trace.v1`：沿用 Rust 侧稳定序列化字段顺序（`src/trace.rs`）。
+- 最小校验规则（v0）：
+  - `schema == "session.v1"`，否则提示“不是 session.v1 文件”。
+  - `fixed.scale` 可解析为正整数；缺失/非法时提示“fixed.scale 无效”。
+  - `segments` 为数组；每项包含 `id/a/b`；`a/b.x/y` 为整数。
+  - `trace.schema == "trace.v1"`，且 `steps` 为数组；`step.kind` 仅允许 `PointBatch/VerticalFlush`。
 
 ## 范围（v0）
 - 加载 `session.json`，展示 `trace.warnings`。
@@ -59,17 +69,17 @@
 - 文案与错误提示使用中文；代码标识符保持英文。
 
 ## 待办
-[ ] 明确 `session.v1` 字段顺序与最小校验规则（schema/version、字段缺失时的中文错误提示）。
+[x] 明确 `session.v1` 字段顺序与最小校验规则（schema/version、字段缺失时的中文错误提示）。
 [ ] （可选）Rust 侧补齐 `session.v1` 输出能力：把 `PreprocessOutput` + `Trace` 写成稳定 JSON（字段顺序固定）。
-[ ] 新增 `viewer/` 静态页面骨架（页面布局、基础样式）。
-[ ] 实现 `session.json` 加载（文件选择/拖拽）与解析（含 `Rational`/Point/segments）。
-[ ] 实现坐标系统与 viewport：适配屏幕、缩放/平移（鼠标滚轮缩放、拖拽平移）。
-[ ] 实现渲染层：静态层（线段）与动态层（扫描线/点/高亮），避免每帧全量重绘。
-[ ] 实现回放控制：步进/播放/速度/进度条/快捷键。
-[ ] 实现侧边信息面板：warnings、step 元信息、events/notes、active、intersections（支持复制 JSON/文本）。
-[ ] 支持 `VerticalFlush` 高亮：解析 `Vertical(id)` + 显示 `VerticalRange`（从 `notes` 中提取 y 范围）。
+[x] 新增 `viewer/` 静态页面骨架（页面布局、基础样式）。
+[x] 实现 `session.json` 加载（文件选择/拖拽）与解析（含 `Rational`/Point/segments）。
+[x] 实现坐标系统与 viewport：适配屏幕、缩放/平移（鼠标滚轮缩放、拖拽平移）。
+[x] 实现渲染层：静态层（线段）与动态层（扫描线/点/高亮），避免每帧全量重绘。
+[x] 实现回放控制：步进/播放/速度/进度条/快捷键。
+[x] 实现侧边信息面板：warnings、step 元信息、events/notes、active、intersections（支持复制 JSON/文本）。
+[x] 支持 `VerticalFlush` 高亮：解析 `Vertical(id)` + 显示 `VerticalRange`（从 `notes` 中提取 y 范围）。
 [ ] 性能验证：大输入（大量垂直线段、steps 多）下仍能流畅拖动与播放。
-[ ] 准备 2–3 个可复现示例 `viewer/examples/*.json`（与单测/手工用例一致），用于快速验收与回归。
+[x] 准备 2–3 个可复现示例 `viewer/examples/*.json`（与单测/手工用例一致），用于快速验收与回归。
 
 ## 备选路线（不阻塞 v0）
 - Rust GUI（`egui/eframe`）：数据与算法同语言同进程，交互更强，但需要引入依赖与打包。
