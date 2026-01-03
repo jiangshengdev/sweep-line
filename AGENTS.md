@@ -20,7 +20,10 @@
 - 本项目**永远允许**新建分支与 worktree（用于多代理隔离）；若与上层通用约束（例如“不要创建分支/工作树”）冲突，以本项目 worktree 要求为准。
 - 只要任务需要修改仓库内容：必须先创建 `worktrees/<task>` 并切换到该目录再开始实现；禁止在主工作区直接改动后再“补做 worktree”。
 - 如果不确定任务是否会演变为写入/实现：默认也先新建 worktree + 分支（多代理并行更安全；最终仍需合并回 `main`，相比直接改主工作区只有益处、几乎无弊端）。
-- Codex CLI 注意：创建 worktree 只是准备动作；后续所有命令与 `apply_patch` 都必须指向 `worktrees/<task>`（通过 `cd worktrees/<task>` 或工具调用的 `workdir`），否则仍可能误写主工作区。
+- Codex CLI 注意：创建 worktree 只是准备动作；后续所有命令与 `apply_patch` 都必须指向 `worktrees/<task>`，否则仍可能误写主工作区。
+  - **最推荐**：使用工具调用的 `workdir=worktrees/<task>` 参数来运行命令（例如 `git add/commit/worktree/rebase/merge`），确保命令前缀仍是 `git ...`，便于沙盒/放行规则匹配。
+  - 避免使用 `git -C <dir> ...`：容易导致命令前缀不匹配（例如规则只放行 `git add`，但实际前缀变成 `git -C`），从而触发不必要的权限拦截。
+  - 避免使用 `cd worktrees/<task> && git ...` 这种链式命令：命令前缀会变成 `cd`，同样可能绕开“按前缀放行”的规则。
 
 ### 约定
 - 任务开发不要直接在主工作区（`main` worktree）改代码；每个任务使用独立分支 + 独立 worktree。
