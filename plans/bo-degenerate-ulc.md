@@ -2,7 +2,7 @@
 
 目标：用更标准的 Bentley–Ottmann 事件点批处理方式（集合 `U(p)/L(p)/C(p)`）修复当前 `Status(SegmentNotFound)` 等退化错误，并让 trace 语义更自洽、便于回放与定位。
 
-背景：当前实现会把 `EndpointTouch` 也调度为 `Intersection` 事件；而同点批处理里 `SegmentEnd` 先于 `Intersection`，导致“交点落在端点”时重排尝试移除已删除线段，从而触发 `SegmentNotFound`。详见 `plans/bo-sweep-line.md` 的“已知问题”章节。
+背景（修复前）：实现曾把 `EndpointTouch` 也调度为 `Intersection` 事件；而同点批处理里 `SegmentEnd` 先于 `Intersection`，导致“交点落在端点”时重排尝试移除已删除线段，从而触发 `SegmentNotFound`。详见 `plans/bo-sweep-line.md` 的“已知问题（已修复 / 归档）”章节。
 
 ## 范围
 - In：
