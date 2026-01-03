@@ -319,8 +319,30 @@ button:disabled {
   border-left: 2px solid var(--border);
 }
 
+.session-list__folder {
+  display: grid;
+  gap: 8px;
+}
+
+.session-list__folder-list {
+  padding-left: 10px;
+}
+
 .session-list--grid .session-list__group {
   grid-column: 1 / -1;
+}
+
+.session-list--grid .session-list__folder {
+  grid-column: 1 / -1;
+}
+
+.session-list--grid .session-list__folder-list {
+  padding-left: 0;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.session-picker .session-list--grid .session-list__folder-list {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
 .session-list__item {

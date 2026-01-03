@@ -393,27 +393,13 @@ function clearChildren(node) {
   }
 }
 
-function dirnameOfPath(path) {
-  const raw = String(path || "");
-  const idx = raw.lastIndexOf("/");
-  if (idx <= 0) {
-    return "";
-  }
-  return raw.slice(0, idx);
-}
-
 function folderKeyForSessionIndexItem(item) {
-  const rawPath = String(item?.path || "");
-  const slash = rawPath.indexOf("/");
-  if (slash < 0) {
+  const rawPath = String(item?.path || "").replace(/\\/g, "/");
+  const parts = rawPath.split("/").filter(Boolean);
+  if (parts.length < 3) {
     return "";
   }
-  const root = rawPath.slice(0, slash);
-  if (root === "generated" || root === "examples") {
-    const rel = rawPath.slice(root.length + 1);
-    return dirnameOfPath(rel);
-  }
-  return dirnameOfPath(rawPath);
+  return parts[1];
 }
 
 function groupSessionIndexItemsForRender(items) {
@@ -1356,15 +1342,17 @@ function renderSessionListInto({ list, empty, items, currentSource, onSelect }) 
       fragment.appendChild(groupLi);
     }
 
-    const showRootFolder = group.folders.some((folder) => folder.key);
     for (const folder of group.folders) {
-      if (folder.key || showRootFolder) {
-        const folderLi = document.createElement("li");
-        folderLi.className = "session-list__group session-list__group--folder mono";
-        folderLi.textContent = folder.key ? `${folder.key}/` : "（根目录）";
-        fragment.appendChild(folderLi);
-      }
+      const sectionLi = document.createElement("li");
+      sectionLi.className = "session-list__folder";
 
+      const folderTitle = document.createElement("div");
+      folderTitle.className = "session-list__group session-list__group--folder mono";
+      folderTitle.textContent = folder.key ? `${folder.key}/` : "（根目录）";
+      sectionLi.appendChild(folderTitle);
+
+      const folderList = document.createElement("ul");
+      folderList.className = "session-list session-list__folder-list";
       for (const item of folder.items) {
         const li = document.createElement("li");
         const button = document.createElement("button");
@@ -1391,8 +1379,11 @@ function renderSessionListInto({ list, empty, items, currentSource, onSelect }) 
         });
 
         li.appendChild(button);
-        fragment.appendChild(li);
+        folderList.appendChild(li);
       }
+
+      sectionLi.appendChild(folderList);
+      fragment.appendChild(sectionLi);
     }
   }
 
