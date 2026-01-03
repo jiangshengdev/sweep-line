@@ -1,0 +1,42 @@
+/*
+  轻量样式重置（viewer 专用）
+
+  目标：
+  - 统一 Chrome / Firefox / Safari 的默认样式差异（尤其是表单控件字体继承与默认 margin）。
+  - 不做“侵入式重置”：不清空列表序号/默认焦点环等，避免影响语义组件与可访问性。
+*/
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+canvas {
+  display: block;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}

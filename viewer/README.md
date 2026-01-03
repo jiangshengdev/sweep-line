@@ -46,6 +46,7 @@ pnpm gen:sessions
 - 渲染：`viewer/render/renderer.js`（双层 canvas、viewport/camera、标脏渲染）
 - UI：`viewer/ui/`（列表/弹层渲染、右侧面板刷新）
 - 控制器：`viewer/controller/`（settings/playback/loaders）
+- 样式：`viewer/reset.css`（轻量 reset/兼容性收敛）+ `viewer/style.css`（主题与组件样式）
 
 ## 开发提示
 - 本项目使用 `// @ts-check` + JSDoc 提供编辑器提示；不需要安装任何依赖或构建步骤（VS Code 自带 TS 语言服务即可生效）。
