@@ -40,15 +40,27 @@
 - 影响：
   - 对外输出/trace 容易爆量；
   - Phase 2 计划里明确希望“按点聚合输出”（见 `phase2-precheck.md`），当前数据结构需要后处理或升级 schema 才能满足。
+- 建议方向（非实现）：
+  - 方案 A（最小变更）：保留内部 pair 记录，但在输出层对 `Vec<PointIntersectionRecord>` 按 `point` 分组，生成 `point -> {segments...}` 的聚合视图（适用于 `session.v2`/viewer）；注意这无法避免 phase1 内部已经产生的 `O(k^2)` 记录量；
+  - 方案 B（根本降爆量）：在扫描线事件点处直接累计“该点涉及的线段集合”，trace/输出只写一次该点（并记录参与线段集合），避免 `record_endpoint_pairs` 枚举所有 pair；若需要进一步分类，可同时记录“端点参与集合/内部参与集合”（可顺带解决 #4 的分类需求）；
+  - 兜底策略：仅在小规模或调试模式输出 pair 级列表；默认对外输出使用按点聚合，配合 #2 的 fail-fast 上限。
 
 ## 4) 点交分类粒度不足（Phase 2 需求缺口）
 
 - 位置：`../src/geom/intersection.rs` 的 `PointIntersectionKind`。
 - 现象：当前仅有 `Proper` / `EndpointTouch`，无法区分 `EndpointEndpoint` 与 `EndpointInterior`。
 - 影响：Phase 2 若需要对外稳定区分三类（用于前端上色/统计），需要扩展 enum 或在输出层增加子字段。
+- 建议方向（非实现）：
+  - 扩展 `PointIntersectionKind`：将 `EndpointTouch` 拆成 `EndpointEndpoint` 与 `EndpointInterior`（并保持对外 schema 稳定）；
+  - 或保留 `EndpointTouch`，但在记录/输出里附加子字段（例如每条线段在该点的角色：`Endpoint`/`Interior`），让前端可派生三类；
+  - 若采用 #3 的按点聚合输出：用 `endpoint_segments` 与 `interior_segments` 两集合即可派生 `Proper`/`EndpointEndpoint`/`EndpointInterior`。
 
 ## 5) 可维护性：几何谓词缺少语义注释
 
 - 位置：`../src/geom/predicates.rs`。
 - 现象：`orient`/`on_segment` 缺少 doc 注释解释符号意义与闭区间约定（当前仅有少量测试覆盖了符号与端点包含性）。
 - 影响：后续在 Phase 2 做 1D 投影、端点语义、退化处理时，理解成本更高、也更容易误用。
+- 建议方向（非实现）：
+  - 在 `orient` 上补充：返回值符号对应的几何意义（左转/右转/共线）、坐标系方向约定；
+  - 在 `on_segment`/`in_bbox` 上补充：闭区间语义（端点包含）以及对共线点的要求；
+  - 明确该模块假设“输入已量化为整数网格”（`SCALE=1e9`）及其对鲁棒性的意义，避免后续引入浮点坐标时误用。
