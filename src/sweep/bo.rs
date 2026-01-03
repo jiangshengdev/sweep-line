@@ -61,7 +61,7 @@ fn run_bentley_ottmann(
         if let Some(x) = pending_x {
             if point.x != x {
                 if !pending_vertical.is_empty() {
-                    let hits = collect_vertical_hits(segments, &status, &pending_vertical);
+                    let hits = collect_vertical_hits(segments, &status, &pending_vertical)?;
                     out.extend_from_slice(&hits);
 
                     if let Some(trace) = trace.as_deref_mut() {
@@ -169,7 +169,7 @@ fn run_bentley_ottmann(
             &endpoint_ids,
             &mut out,
             step.as_mut(),
-        );
+        )?;
 
         // 垂直线段的批末查询发生在 x 变化时；这会遗漏“非垂直线段在该 x 处结束”的端点接触。
         // 这里在删除结束线段之前，补齐它们与 pending_vertical 的端点接触输出。
@@ -246,7 +246,7 @@ fn run_bentley_ottmann(
 
         if to_insert.is_empty() {
             // 只有删除（没有插入/重排）时：检查删除后在 p.y 附近新形成的相邻对。
-            let succ = status.lower_bound_by_y(segments, point.y);
+            let succ = status.lower_bound_by_y(segments, point.y)?;
             let pred = succ.and_then(|id| status.pred(id));
             if let (Some(a), Some(b)) = (pred, succ) {
                 schedule_or_record_pair(
@@ -299,7 +299,7 @@ fn run_bentley_ottmann(
 
     if let Some(x) = pending_x {
         if !pending_vertical.is_empty() {
-            let hits = collect_vertical_hits(segments, &status, &pending_vertical);
+            let hits = collect_vertical_hits(segments, &status, &pending_vertical)?;
             out.extend_from_slice(&hits);
 
             if let Some(trace) = trace.as_deref_mut() {
@@ -331,9 +331,9 @@ fn collect_vertical_hits(
     segments: &Segments,
     status: &impl SweepStatus,
     vertical: &BTreeSet<SegmentId>,
-)-> Vec<PointIntersectionRecord> {
+) -> Result<Vec<PointIntersectionRecord>, BoError> {
     if vertical.is_empty() || status.is_empty() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
     let mut hits: Vec<PointIntersectionRecord> = Vec::new();
@@ -347,7 +347,7 @@ fn collect_vertical_hits(
         let y_min = Rational::from_int(v.a.y.min(v.b.y) as i128);
         let y_max = Rational::from_int(v.a.y.max(v.b.y) as i128);
 
-        let candidates = status.range_by_y(segments, y_min, y_max);
+        let candidates = status.range_by_y(segments, y_min, y_max)?;
         for s_id in candidates {
             let Some(SegmentIntersection::Point { point, kind }) =
                 intersect_segments(v, segments.get(s_id))
@@ -368,7 +368,7 @@ fn collect_vertical_hits(
         }
     }
 
-    hits
+    Ok(hits)
 }
 
 fn record_endpoint_pairs(point: PointRat, events: &[Event], out: &mut Vec<PointIntersectionRecord>) {
@@ -401,17 +401,17 @@ fn record_endpoint_on_interior_hits(
     endpoint_ids: &[SegmentId],
     out: &mut Vec<PointIntersectionRecord>,
     mut trace_step: Option<&mut TraceStep>,
-) {
+) -> Result<(), BoError> {
     if endpoint_ids.is_empty() || status.is_empty() {
-        return;
+        return Ok(());
     }
 
     let endpoint_set: BTreeSet<SegmentId> = endpoint_ids.iter().copied().collect();
 
     // 找出所有在 x=point.x 处 y 恰好等于 point.y 的活动线段：它们穿过事件点，且未必以该点为端点。
-    let candidates = status.range_by_y(segments, point.y, point.y);
+    let candidates = status.range_by_y(segments, point.y, point.y)?;
     if candidates.is_empty() {
-        return;
+        return Ok(());
     }
 
     let mut added = 0_usize;
@@ -450,6 +450,7 @@ fn record_endpoint_on_interior_hits(
             step.notes.push(format!("EndpointOnInterior: {}", added));
         }
     }
+    Ok(())
 }
 
 fn record_vertical_endpoint_touches_for_ending_segments(

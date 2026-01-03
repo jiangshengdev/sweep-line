@@ -3,13 +3,16 @@ use core::fmt;
 
 use crate::geom::segment::{SegmentId, Segments};
 use crate::rational::Rational;
-use crate::sweep::segment_order::{cmp_segments_at_x_plus_epsilon, y_at_x};
+use crate::sweep::segment_order::{
+    SegmentOrderError, cmp_segments_at_x_plus_epsilon, y_at_x,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SweepStatusError {
     VerticalSegmentNotAllowed,
     DuplicateSegmentId,
     SegmentNotFound,
+    SegmentOrder(SegmentOrderError),
 }
 
 impl fmt::Display for SweepStatusError {
@@ -20,7 +23,14 @@ impl fmt::Display for SweepStatusError {
             }
             SweepStatusError::DuplicateSegmentId => write!(f, "重复的 SegmentId"),
             SweepStatusError::SegmentNotFound => write!(f, "状态结构中不存在该线段"),
+            SweepStatusError::SegmentOrder(e) => write!(f, "{}", e),
         }
+    }
+}
+
+impl From<SegmentOrderError> for SweepStatusError {
+    fn from(value: SegmentOrderError) -> Self {
+        SweepStatusError::SegmentOrder(value)
     }
 }
 
@@ -40,15 +50,24 @@ pub trait SweepStatus {
     fn pred(&self, id: SegmentId) -> Option<SegmentId>;
     fn succ(&self, id: SegmentId) -> Option<SegmentId>;
 
-    fn lower_bound_by_y(&self, segments: &Segments, y_min: Rational) -> Option<SegmentId>;
+    fn lower_bound_by_y(
+        &self,
+        segments: &Segments,
+        y_min: Rational,
+    ) -> Result<Option<SegmentId>, SweepStatusError>;
 
-    fn range_by_y(&self, segments: &Segments, y_min: Rational, y_max: Rational) -> Vec<SegmentId> {
+    fn range_by_y(
+        &self,
+        segments: &Segments,
+        y_min: Rational,
+        y_max: Rational,
+    ) -> Result<Vec<SegmentId>, SweepStatusError> {
         let (y_min, y_max) = if y_min <= y_max { (y_min, y_max) } else { (y_max, y_min) };
         let mut out = Vec::new();
 
-        let mut current = self.lower_bound_by_y(segments, y_min);
+        let mut current = self.lower_bound_by_y(segments, y_min)?;
         while let Some(id) = current {
-            let y = y_at_x(segments.get(id), self.sweep_x());
+            let y = y_at_x(segments.get(id), self.sweep_x())?;
             if y > y_max {
                 break;
             }
@@ -56,7 +75,7 @@ pub trait SweepStatus {
             current = self.succ(id);
         }
 
-        out
+        Ok(out)
     }
 
     fn reorder_segments(
@@ -104,6 +123,26 @@ impl VecSweepStatus {
     fn position(&self, id: SegmentId) -> Option<usize> {
         self.active.iter().position(|v| *v == id)
     }
+
+    fn lower_bound_index_by_y(
+        &self,
+        segments: &Segments,
+        y_min: Rational,
+    ) -> Result<usize, SweepStatusError> {
+        let sweep_x = self.sweep_x;
+        let mut low = 0_usize;
+        let mut high = self.active.len();
+        while low < high {
+            let mid = low + (high - low) / 2;
+            let y = y_at_x(segments.get(self.active[mid]), sweep_x)?;
+            if y < y_min {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        Ok(low)
+    }
 }
 
 impl SweepStatus for VecSweepStatus {
@@ -125,15 +164,19 @@ impl SweepStatus for VecSweepStatus {
         }
 
         let sweep_x = self.sweep_x;
-        match self.active.binary_search_by(|probe| {
-            cmp_segments_at_x_plus_epsilon(segments, *probe, id, sweep_x)
-        }) {
-            Ok(_) => Err(SweepStatusError::DuplicateSegmentId),
-            Err(index) => {
-                self.active.insert(index, id);
-                Ok(())
+        let mut low = 0_usize;
+        let mut high = self.active.len();
+        while low < high {
+            let mid = low + (high - low) / 2;
+            let probe = self.active[mid];
+            match cmp_segments_at_x_plus_epsilon(segments, probe, id, sweep_x)? {
+                Ordering::Less => low = mid + 1,
+                Ordering::Greater => high = mid,
+                Ordering::Equal => return Err(SweepStatusError::DuplicateSegmentId),
             }
         }
+        self.active.insert(low, id);
+        Ok(())
     }
 
     fn remove(&mut self, id: SegmentId) -> Result<(), SweepStatusError> {
@@ -154,30 +197,34 @@ impl SweepStatus for VecSweepStatus {
         self.active.get(index + 1).copied()
     }
 
-    fn lower_bound_by_y(&self, segments: &Segments, y_min: Rational) -> Option<SegmentId> {
-        let sweep_x = self.sweep_x;
-        let index = self
-            .active
-            .partition_point(|id| y_at_x(segments.get(*id), sweep_x) < y_min);
-        self.active.get(index).copied()
+    fn lower_bound_by_y(
+        &self,
+        segments: &Segments,
+        y_min: Rational,
+    ) -> Result<Option<SegmentId>, SweepStatusError> {
+        let index = self.lower_bound_index_by_y(segments, y_min)?;
+        Ok(self.active.get(index).copied())
     }
 
-    fn range_by_y(&self, segments: &Segments, y_min: Rational, y_max: Rational) -> Vec<SegmentId> {
+    fn range_by_y(
+        &self,
+        segments: &Segments,
+        y_min: Rational,
+        y_max: Rational,
+    ) -> Result<Vec<SegmentId>, SweepStatusError> {
         let (y_min, y_max) = if y_min <= y_max { (y_min, y_max) } else { (y_max, y_min) };
         let sweep_x = self.sweep_x;
 
-        let start = self
-            .active
-            .partition_point(|id| y_at_x(segments.get(*id), sweep_x) < y_min);
+        let start = self.lower_bound_index_by_y(segments, y_min)?;
         let mut out = Vec::new();
         for id in &self.active[start..] {
-            let y = y_at_x(segments.get(*id), sweep_x);
+            let y = y_at_x(segments.get(*id), sweep_x)?;
             if y > y_max {
                 break;
             }
             out.push(*id);
         }
-        out
+        Ok(out)
     }
 
     fn snapshot_order(&self) -> Vec<SegmentId> {
@@ -194,7 +241,10 @@ impl SweepStatus for VecSweepStatus {
         for i in 1..self.active.len() {
             let prev = self.active[i - 1];
             let curr = self.active[i];
-            let ord = cmp_segments_at_x_plus_epsilon(segments, prev, curr, self.sweep_x);
+            let ord =
+                cmp_segments_at_x_plus_epsilon(segments, prev, curr, self.sweep_x).map_err(
+                    |e| e.to_string(),
+                )?;
             if ord != core::cmp::Ordering::Less {
                 return Err(format!(
                     "状态结构顺序不满足严格递增：{:?} 与 {:?}",
@@ -411,7 +461,7 @@ impl SweepStatus for TreapSweepStatus {
         let sweep_x = self.sweep_x;
         let mut current = root;
         loop {
-            match cmp_segments_at_x_plus_epsilon(segments, current, id, sweep_x) {
+            match cmp_segments_at_x_plus_epsilon(segments, current, id, sweep_x)? {
                 Ordering::Less => {
                     // current < id，往右
                     if let Some(next) = self.nodes[current.0].right {
@@ -514,12 +564,16 @@ impl SweepStatus for TreapSweepStatus {
         None
     }
 
-    fn lower_bound_by_y(&self, segments: &Segments, y_min: Rational) -> Option<SegmentId> {
+    fn lower_bound_by_y(
+        &self,
+        segments: &Segments,
+        y_min: Rational,
+    ) -> Result<Option<SegmentId>, SweepStatusError> {
         let mut current = self.root;
         let mut candidate = None;
 
         while let Some(id) = current {
-            let y = y_at_x(segments.get(id), self.sweep_x);
+            let y = y_at_x(segments.get(id), self.sweep_x)?;
             if y < y_min {
                 current = self.nodes[id.0].right;
             } else {
@@ -528,7 +582,7 @@ impl SweepStatus for TreapSweepStatus {
             }
         }
 
-        candidate
+        Ok(candidate)
     }
 
     fn snapshot_order(&self) -> Vec<SegmentId> {
@@ -603,7 +657,10 @@ impl SweepStatus for TreapSweepStatus {
         for i in 1..ordered.len() {
             let prev = ordered[i - 1];
             let curr = ordered[i];
-            let ord = cmp_segments_at_x_plus_epsilon(segments, prev, curr, self.sweep_x);
+            let ord =
+                cmp_segments_at_x_plus_epsilon(segments, prev, curr, self.sweep_x).map_err(
+                    |e| e.to_string(),
+                )?;
             if ord != Ordering::Less {
                 return Err(format!(
                     "BST 顺序不满足严格递增：{:?} 与 {:?}",
@@ -722,7 +779,8 @@ mod tests {
             &segments,
             Rational::from_int(9),
             Rational::from_int(11),
-        );
+        )
+        .unwrap();
         assert_eq!(ids, vec![s2, s3]);
     }
 
@@ -817,7 +875,8 @@ mod tests {
             &segments,
             Rational::from_int(9),
             Rational::from_int(11),
-        );
+        )
+        .unwrap();
         assert_eq!(ids, vec![s2, s3]);
 
         status.remove(s2).unwrap();

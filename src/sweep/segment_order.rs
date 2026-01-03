@@ -1,9 +1,25 @@
 use core::cmp::Ordering;
+use core::fmt;
 
 use crate::geom::segment::{Segment, SegmentId, Segments};
 use crate::rational::Rational;
 
-pub fn y_at_x(segment: &Segment, sweep_x: Rational) -> Rational {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SegmentOrderError {
+    ArithmeticOverflow { operation: &'static str },
+}
+
+impl fmt::Display for SegmentOrderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SegmentOrderError::ArithmeticOverflow { operation } => {
+                write!(f, "算术溢出：{}", operation)
+            }
+        }
+    }
+}
+
+pub fn y_at_x(segment: &Segment, sweep_x: Rational) -> Result<Rational, SegmentOrderError> {
     debug_assert!(
         !segment.is_vertical(),
         "垂直线段不应进入状态结构的 y_at_x 计算"
@@ -27,30 +43,38 @@ pub fn y_at_x(segment: &Segment, sweep_x: Rational) -> Rational {
     // y(x) = (y1*q*dx + dy*(p - x1*q)) / (q*dx)
     let y1_q = y1
         .checked_mul(q)
-        .expect("i128 乘法溢出：y1*q");
+        .ok_or(SegmentOrderError::ArithmeticOverflow { operation: "y1*q" })?;
     let y1_q_dx = y1_q
         .checked_mul(dx)
-        .expect("i128 乘法溢出：y1*q*dx");
+        .ok_or(SegmentOrderError::ArithmeticOverflow {
+            operation: "y1*q*dx",
+        })?;
 
     let x1_q = x1
         .checked_mul(q)
-        .expect("i128 乘法溢出：x1*q");
+        .ok_or(SegmentOrderError::ArithmeticOverflow { operation: "x1*q" })?;
     let p_minus_x1q = p
         .checked_sub(x1_q)
-        .expect("i128 减法溢出：p - x1*q");
+        .ok_or(SegmentOrderError::ArithmeticOverflow {
+            operation: "p - x1*q",
+        })?;
     let dy_term = dy
         .checked_mul(p_minus_x1q)
-        .expect("i128 乘法溢出：dy*(p - x1*q)");
+        .ok_or(SegmentOrderError::ArithmeticOverflow {
+            operation: "dy*(p - x1*q)",
+        })?;
 
     let numerator = y1_q_dx
         .checked_add(dy_term)
-        .expect("i128 加法溢出：y 分子");
+        .ok_or(SegmentOrderError::ArithmeticOverflow {
+            operation: "y1*q*dx + dy*(p - x1*q)",
+        })?;
 
     let denominator = q
         .checked_mul(dx)
-        .expect("i128 乘法溢出：q*dx");
+        .ok_or(SegmentOrderError::ArithmeticOverflow { operation: "q*dx" })?;
 
-    Rational::new(numerator, denominator)
+    Ok(Rational::new(numerator, denominator))
 }
 
 pub fn slope(segment: &Segment) -> Rational {
@@ -76,9 +100,9 @@ pub fn cmp_segments_at_x_plus_epsilon(
     a_id: SegmentId,
     b_id: SegmentId,
     sweep_x: Rational,
-) -> Ordering {
+) -> Result<Ordering, SegmentOrderError> {
     if a_id == b_id {
-        return Ordering::Equal;
+        return Ok(Ordering::Equal);
     }
 
     let a = segments.get(a_id);
@@ -89,21 +113,21 @@ pub fn cmp_segments_at_x_plus_epsilon(
         "垂直线段不应进入状态结构比较器"
     );
 
-    let y_a = y_at_x(a, sweep_x);
-    let y_b = y_at_x(b, sweep_x);
+    let y_a = y_at_x(a, sweep_x)?;
+    let y_b = y_at_x(b, sweep_x)?;
     match y_a.cmp(&y_b) {
         Ordering::Equal => {}
-        ord => return ord,
+        ord => return Ok(ord),
     }
 
     let slope_a = slope(a);
     let slope_b = slope(b);
     match slope_a.cmp(&slope_b) {
         Ordering::Equal => {}
-        ord => return ord,
+        ord => return Ok(ord),
     }
 
-    a_id.cmp(&b_id)
+    Ok(a_id.cmp(&b_id))
 }
 
 #[cfg(test)]
@@ -122,8 +146,28 @@ mod tests {
         });
 
         let x = Rational::new(1, 2);
-        let y = y_at_x(segments.get(id), x);
+        let y = y_at_x(segments.get(id), x).unwrap();
         assert_eq!(y, Rational::new(1, 2));
+    }
+
+    #[test]
+    fn y_at_x_returns_error_on_overflow() {
+        let segment = Segment {
+            a: PointI64 {
+                x: 0,
+                y: i64::MAX,
+            },
+            b: PointI64 {
+                x: 1,
+                y: i64::MAX,
+            },
+            source_index: 0,
+        };
+        let x = Rational::new(1, 10_i128.pow(20));
+        assert_eq!(
+            y_at_x(&segment, x).unwrap_err(),
+            SegmentOrderError::ArithmeticOverflow { operation: "y1*q" }
+        );
     }
 
     #[test]
@@ -142,11 +186,11 @@ mod tests {
 
         let x = Rational::from_int(5);
         assert_eq!(
-            cmp_segments_at_x_plus_epsilon(&segments, down, up, x),
+            cmp_segments_at_x_plus_epsilon(&segments, down, up, x).unwrap(),
             Ordering::Less
         );
         assert_eq!(
-            cmp_segments_at_x_plus_epsilon(&segments, up, down, x),
+            cmp_segments_at_x_plus_epsilon(&segments, up, down, x).unwrap(),
             Ordering::Greater
         );
     }
@@ -167,11 +211,11 @@ mod tests {
 
         let x = Rational::from_int(0);
         assert_eq!(
-            cmp_segments_at_x_plus_epsilon(&segments, a, b, x),
+            cmp_segments_at_x_plus_epsilon(&segments, a, b, x).unwrap(),
             Ordering::Less
         );
         assert_eq!(
-            cmp_segments_at_x_plus_epsilon(&segments, b, a, x),
+            cmp_segments_at_x_plus_epsilon(&segments, b, a, x).unwrap(),
             Ordering::Greater
         );
     }
@@ -192,13 +236,12 @@ mod tests {
 
         let x = Rational::from_int(0);
         assert_eq!(
-            cmp_segments_at_x_plus_epsilon(&segments, flat, up, x),
+            cmp_segments_at_x_plus_epsilon(&segments, flat, up, x).unwrap(),
             Ordering::Less
         );
         assert_eq!(
-            cmp_segments_at_x_plus_epsilon(&segments, up, flat, x),
+            cmp_segments_at_x_plus_epsilon(&segments, up, flat, x).unwrap(),
             Ordering::Greater
         );
     }
 }
-
