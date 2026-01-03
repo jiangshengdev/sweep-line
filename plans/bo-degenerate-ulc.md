@@ -37,7 +37,7 @@
 [x] 整理垂直线段处理：在同一 `x` 批内，先输出垂直命中与垂直相关端点接触；避免依赖“跨点 flush”才能输出的语义裂缝。
 [x] 更新 trace 的 notes/events 约定（保持 schema 不变）：让 notes 能解释 `U/L/C` 的批处理过程，便于回放定位。
 [x] 增加回归测试：包含 `Status(SegmentNotFound)` 的固定复现输入（可从 seed 用例固化为明确线段集合）。
-[ ] 重新跑稳定性测试：trace/session JSON 字节级一致；并确保 `pnpm gen:sessions` 默认参数可成功生成（随机用例不崩溃）。
+[x] 重新跑稳定性测试：trace/session JSON 字节级一致；并确保 `pnpm gen:sessions` 默认参数可成功生成（随机用例不崩溃）。
 [ ] 评估性能影响：`U/L/C` 批处理不会显著拉低大输入性能；必要时只在退化点启用额外检查（但保持确定性）。
 
 ## 风险与取舍
