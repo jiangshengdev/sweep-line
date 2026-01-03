@@ -215,6 +215,9 @@ fn run_bentley_ottmann(
 
         if let Some(step) = step.as_mut() {
             step.notes.push(format!("ULC: U={} L={} C={}", u.len(), l.len(), c.len()));
+            step.notes.push(format!("U: {}", format_id_list(&u, 12)));
+            step.notes.push(format!("L: {}", format_id_list(&l, 12)));
+            step.notes.push(format!("C: {}", format_id_list(&c, 12)));
         }
 
         let mut to_remove: Vec<SegmentId> = l.clone();
@@ -584,6 +587,25 @@ fn event_to_string(event: Event) -> String {
 
 fn format_point(p: PointRat) -> String {
     format!("({}, {})", p.x, p.y)
+}
+
+fn format_id_list(ids: &[SegmentId], limit: usize) -> String {
+    let mut out = String::new();
+    out.push('[');
+    let shown = ids.len().min(limit);
+    for i in 0..shown {
+        if i != 0 {
+            out.push(',');
+        }
+        out.push_str(&ids[i].0.to_string());
+    }
+    if ids.len() > shown {
+        out.push_str(",...");
+        out.push_str(&(ids.len() - shown).to_string());
+        out.push_str(" more");
+    }
+    out.push(']');
+    out
 }
 
 #[cfg(test)]
