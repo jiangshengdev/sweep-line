@@ -171,6 +171,17 @@ fn run_bentley_ottmann(
             step.as_mut(),
         );
 
+        // 垂直线段的批末查询发生在 x 变化时；这会遗漏“非垂直线段在该 x 处结束”的端点接触。
+        // 这里在删除结束线段之前，补齐它们与 pending_vertical 的端点接触输出。
+        record_vertical_endpoint_touches_for_ending_segments(
+            segments,
+            &pending_vertical,
+            point,
+            &l,
+            &mut out,
+            step.as_mut(),
+        );
+
         let mut c: Vec<SegmentId> = Vec::new();
         for (a, b) in &intersection_pairs {
             let a = *a;
@@ -427,6 +438,57 @@ fn record_endpoint_on_interior_hits(
     }
 }
 
+fn record_vertical_endpoint_touches_for_ending_segments(
+    segments: &Segments,
+    pending_vertical: &BTreeSet<SegmentId>,
+    point: PointRat,
+    ending_ids: &[SegmentId],
+    out: &mut Vec<PointIntersectionRecord>,
+    mut trace_step: Option<&mut TraceStep>,
+) {
+    if pending_vertical.is_empty() || ending_ids.is_empty() {
+        return;
+    }
+
+    let mut added = 0_usize;
+    for &s_id in ending_ids {
+        let s = segments.get(s_id);
+        debug_assert!(!s.is_vertical(), "ending_ids 不应包含垂直线段");
+
+        for &v_id in pending_vertical {
+            let v = segments.get(v_id);
+            debug_assert!(v.is_vertical(), "pending_vertical 仅应包含垂直线段");
+
+            // 垂直线段的端点接触（端点-端点）由 record_endpoint_pairs 负责，避免重复。
+            if point == PointRat::from_i64(v.a) || point == PointRat::from_i64(v.b) {
+                continue;
+            }
+
+            let Some(SegmentIntersection::Point { point: ip, kind }) = intersect_segments(v, s) else {
+                continue;
+            };
+            if ip != point || kind != PointIntersectionKind::EndpointTouch {
+                continue;
+            }
+
+            let (a, b) = if v_id <= s_id { (v_id, s_id) } else { (s_id, v_id) };
+            out.push(PointIntersectionRecord {
+                point: ip,
+                kind,
+                a,
+                b,
+            });
+            added += 1;
+        }
+    }
+
+    if added != 0 {
+        if let Some(step) = trace_step.as_mut() {
+            step.notes.push(format!("VerticalEndpointTouch(end): {}", added));
+        }
+    }
+}
+
 fn schedule_or_record_pair(
     segments: &Segments,
     queue: &mut EventQueue,
@@ -614,6 +676,35 @@ mod tests {
                 kind: PointIntersectionKind::Proper,
                 a: vertical,
                 b: other,
+            }]
+        );
+    }
+
+    #[test]
+    fn reports_endpoint_touch_when_segment_ends_on_vertical_interior() {
+        let mut segments = Segments::new();
+        let vertical = segments.push(Segment {
+            a: PointI64 { x: 0, y: -10 },
+            b: PointI64 { x: 0, y: 10 },
+            source_index: 0,
+        });
+        let ending = segments.push(Segment {
+            a: PointI64 { x: -10, y: 3 },
+            b: PointI64 { x: 0, y: 3 },
+            source_index: 1,
+        });
+
+        let out = enumerate_point_intersections(&segments).unwrap();
+        assert_eq!(
+            out,
+            vec![PointIntersectionRecord {
+                point: PointRat {
+                    x: Rational::from_int(0),
+                    y: Rational::from_int(3),
+                },
+                kind: PointIntersectionKind::EndpointTouch,
+                a: vertical,
+                b: ending,
             }]
         );
     }
