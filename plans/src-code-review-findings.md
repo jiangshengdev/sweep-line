@@ -6,8 +6,9 @@
 
 ## 1) 潜在 panic：`y_at_x` 的 i128 溢出路径
 
+- 状态：已实现（方案 A）——`y_at_x` 已改为返回 `Result` 并向上游传播 `ArithmeticOverflow`，避免 `panic` 中断（见 `../src/sweep/segment_order.rs` / `../src/sweep/status.rs`）。
 - 位置：`../src/sweep/segment_order.rs` 的 `y_at_x`。
-- 现象：多处 `checked_mul/checked_add/checked_sub(...).expect("i128 ... 溢出")`（一旦触发会直接 `panic`）。
+- 修复前现象：多处 `checked_mul/checked_add/checked_sub(...).expect("i128 ... 溢出")`（一旦触发会直接 `panic`）。
 - 现状评估（基于现有输入约束）：若线段坐标均来自 `preprocess`（`Coord=i64` 且量化范围 `[-1e9,1e9]`），并且 `sweep_x` 仅来自端点或两线交点（分母量级约 `≤1e19`），则 `y_at_x` 的中间量粗略估算在 `1e37` 量级，低于 `i128::MAX`，因此在“按当前入口使用”的情况下很难触发溢出；但该前提目前未被类型/接口显式约束。
 - 影响：
   - 扫描线运行中断（可靠性风险）；若输入可控/外部可提供，属于潜在 DoS 风险。
@@ -22,7 +23,7 @@
 - 状态：已实现（见 `plans/fail-fast-limits.md`，以及 `../src/limits.rs` / `../src/run.rs` / `../src/sweep/bo.rs` / `../src/session.rs`）。
 - 位置：`../src/run.rs` 的 `run_phase1` 以及 `../src/sweep/bo.rs` 的 trace/输出累计逻辑。
 - 现象：当前 phase1 直接构建并返回：
-  - `Vec<PointIntersectionRecord>`（点交 pair 列表）
+  - `Vec<PointIntersectionGroupRecord>`（按点聚合交点列表）
   - `Trace`（含 `steps`/`active`/`intersections` 等）
   但没有 `max_*` 参数或硬上限检查。
 - 影响：
@@ -36,7 +37,7 @@
 
 ## 3) 交点输出未按点聚合（同点多线段会爆量）
 
-- 状态：已实现（见 `plans/aggregate-intersections-by-point.md`，以及 `../src/geom/intersection.rs` / `../src/sweep/bo.rs` / `../src/trace.rs` / `../src/session.rs` / `../viewer/app.js`）。
+- 状态：已实现（见 `plans/aggregate-intersections-by-point.md`，以及 `../src/geom/intersection.rs` / `../src/sweep/bo.rs` / `../src/trace.rs` / `../src/session.rs` / `../viewer/schema/session.js` / `../viewer/ui/panels.js`）。
 - 位置：`../src/geom/intersection.rs` 的 `PointIntersectionGroupRecord` 定义与 `../src/sweep/bo.rs` 的输出方式。
 - 现象（修复前）：phase1 的交点输出是“点 + (a,b)”的 pair 记录；同一点涉及 `k` 条线段时，会产生 `k*(k-1)/2` 条记录。
 - 影响：
@@ -49,10 +50,10 @@
 
 ## 4) 点交分类粒度不足（Phase 2 需求缺口）
 
-- 状态：部分满足——Phase 1 的 `trace.v2/session.v2` 已输出 `endpoint_segments`/`interior_segments`，可派生三类；但核心 enum 与 viewer 目前仍只呈现两类。
+- 状态：已实现（方案 2）——Phase 1 的 `trace.v2/session.v2` 输出 `endpoint_segments`/`interior_segments`，viewer 侧派生并展示三类（不要求扩展核心 enum）。
 - 位置：
   - 核心：`../src/geom/intersection.rs` 的 `PointIntersectionKind`。
-  - Viewer：`../viewer/app.js` 的 `parseIntersectionV2` 目前仍将 `kind` 归并为 `Proper/EndpointTouch`。
+  - Viewer：`../viewer/schema/session.js` 的 `deriveIntersectionKind`（产出 `kindDetail`）。
 - 现象：`PointIntersectionKind` 当前仅有 `Proper` / `EndpointTouch`，无法显式区分 `EndpointEndpoint` 与 `EndpointInterior`。
 - 影响：
   - 若 Phase 2 需要对外稳定区分三类（用于前端上色/统计），需要明确“派生规则”或扩展对外字段；

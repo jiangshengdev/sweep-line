@@ -171,11 +171,44 @@ function parseIntersectionV1(value, path) {
   const segments = normalizeSegmentIdList([a, b]);
   return {
     kind,
+    kindDetail: kind,
     point,
     segments,
     endpointSegments: null,
     interiorSegments: null,
   };
+}
+
+/**
+ * 对 `trace.v2` 的按点聚合交点，派生 Phase 2 所需的三分类：
+ * - Proper（内部-内部）
+ * - EndpointEndpoint（端点-端点）
+ * - EndpointInterior（端点-内部）
+ *
+ * 注意：同一几何点可能同时存在 EndpointEndpoint 与 EndpointInterior（例如多个端点重合且还有线段穿过）。
+ * 这时 `kindDetail` 会用 `A+B` 的形式表达多标签。
+ *
+ * @param {number[]} endpointSegments
+ * @param {number[]} interiorSegments
+ * @returns {{ kind: "Proper" | "EndpointTouch", kindDetail: string }}
+ */
+function deriveIntersectionKind(endpointSegments, interiorSegments) {
+  if (endpointSegments.length === 0) {
+    return { kind: "Proper", kindDetail: "Proper" };
+  }
+
+  /** @type {string[]} */
+  const tags = [];
+  if (endpointSegments.length >= 2) {
+    tags.push("EndpointEndpoint");
+  }
+  if (interiorSegments.length > 0) {
+    tags.push("EndpointInterior");
+  }
+
+  // 理论上按点聚合输出至少包含 2 条线段；这里留个兜底，避免异常数据导致 UI 崩溃。
+  const kindDetail = tags.length ? tags.join("+") : "EndpointTouch";
+  return { kind: "EndpointTouch", kindDetail };
 }
 
 /**
@@ -195,10 +228,11 @@ function parseIntersectionV2(value, path) {
   const endpointNorm = normalizeSegmentIdList(endpointSegments);
   const interiorNorm = normalizeSegmentIdList(interiorSegments);
   const segments = normalizeSegmentIdList([...endpointNorm, ...interiorNorm]);
-  const kind = endpointNorm.length ? "EndpointTouch" : "Proper";
+  const { kind, kindDetail } = deriveIntersectionKind(endpointNorm, interiorNorm);
 
   return {
     kind,
+    kindDetail,
     point,
     segments,
     endpointSegments: endpointNorm,
@@ -333,4 +367,3 @@ export function parseSession(value) {
     trace,
   };
 }
-

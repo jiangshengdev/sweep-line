@@ -17,6 +17,18 @@ function formatIdList(ids, limit) {
 }
 
 /**
+ * @param {number[] | null | undefined} ids
+ * @param {number} limit
+ * @returns {string}
+ */
+function formatOptionalIdList(ids, limit) {
+  if (ids == null) {
+    return "（未知）";
+  }
+  return formatIdList(ids, limit);
+}
+
+/**
  * @param {HTMLElement | null} container
  * @param {string | null} current
  */
@@ -95,12 +107,18 @@ export function createPanels({ elements, appState }) {
       const tdSegments = document.createElement("td");
       tdSegments.textContent = formatIdList(it.segments, 16);
       const tdKind = document.createElement("td");
-      tdKind.textContent = it.kind;
+      tdKind.textContent = it.kindDetail ?? it.kind;
       const tdPoint = document.createElement("td");
       tdPoint.textContent = `(${it.point.x.text}, ${it.point.y.text})`;
+      const tdEndpoint = document.createElement("td");
+      tdEndpoint.textContent = formatOptionalIdList(it.endpointSegments, 16);
+      const tdInterior = document.createElement("td");
+      tdInterior.textContent = formatOptionalIdList(it.interiorSegments, 16);
       tr.appendChild(tdSegments);
       tr.appendChild(tdKind);
       tr.appendChild(tdPoint);
+      tr.appendChild(tdEndpoint);
+      tr.appendChild(tdInterior);
       fragment.appendChild(tr);
     }
     elements.intersections.appendChild(fragment);
@@ -143,4 +161,3 @@ export function createPanels({ elements, appState }) {
     updateSessionListSelection,
   };
 }
-

@@ -33,7 +33,13 @@
   - `Proper`：内部–内部
   - `EndpointEndpoint`：端点–端点
   - `EndpointInterior`：端点–内部
-- 实现可扩展 enum 或在输出里增加子字段，但对外必须可区分上述三类。
+- 已采用方案 2（输出角色信息，让下游派生三分类）：
+  - `trace.v2` 的按点聚合交点记录输出 `endpoint_segments` 与 `interior_segments`（见 `src/trace.rs`）。
+  - 派生规则：
+    - `Proper`：`endpoint_segments` 为空
+    - `EndpointEndpoint`：`endpoint_segments.len() >= 2`
+    - `EndpointInterior`：`!endpoint_segments.is_empty()` 且 `!interior_segments.is_empty()`
+  - 注意：同一几何点可能同时满足 `EndpointEndpoint` 与 `EndpointInterior`（多个端点重合且还有线段穿过）；输出保持集合完整，不强制压成单一 kind，前端可按需显示为多标签或设定优先级。
 
 ### 4) 覆盖次数：仅基于预处理后的线段集合
 - 预处理会去重（`src/preprocess.rs`）：重复输入不作为多重覆盖（multiset）。
