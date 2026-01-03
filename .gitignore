@@ -1,2 +1,5 @@
 /target
 /viewer/generated
+
+# 本地 git worktree 工作区
+/worktrees/
