@@ -39,5 +39,25 @@ pnpm gen:sessions
 - 激活线段：默认不加粗；可用“激活加粗”开关切换（会记住设置）
 - 当前执行点：用十字准星标记，避免遮挡交点
 
+## 代码结构（ESM 多模块）
+- 入口：`viewer/app.js`（装配 modules、安装事件、启动渲染与索引加载）
+- 工具：`viewer/lib/`（storage/dom/format/numbers/color）
+- 协议解析：`viewer/schema/`（`session.v1/v2`、`trace.v1/v2`、`session-index.v1`）
+- 渲染：`viewer/render/renderer.js`（双层 canvas、viewport/camera、标脏渲染）
+- UI：`viewer/ui/`（列表/弹层渲染、右侧面板刷新）
+- 控制器：`viewer/controller/`（settings/playback/loaders）
+
+## 开发提示
+- 本项目使用 `// @ts-check` + JSDoc 提供编辑器提示；不需要安装任何依赖或构建步骤（VS Code 自带 TS 语言服务即可生效）。
+- 由于浏览器对 `file://` 下的 ESM 加载限制不一致，建议始终通过本地静态服务运行（见“启动方式”）。
+
+## 手工回归清单（建议）
+- 加载：文件选择与拖拽加载均可用；加载失败时状态栏给出中文错误提示
+- 示例：可加载 `generated/index.json` / `examples/index.json`；列表与弹层可按来源+二级目录分组；搜索可过滤
+- 回放：上一步/下一步、播放/暂停、速度、步数滑条、快捷键（`Space`/`←`/`→`）可用
+- 视图：拖拽平移、滚轮缩放（以指针为中心）、重置视图可用
+- 设置：主题/累计交点/交点大小/激活加粗/列表视图切换可记住（localStorage 不可用时不影响核心功能）
+- VerticalFlush：包含 `Vertical(id)` + `VerticalRange(...)` 的数据可正确高亮与画端点帽
+
 ## 数据格式
 `session.v2` 的建议格式见 `plans/trace-visualizer.md`（同时兼容加载旧的 `session.v1`）。
