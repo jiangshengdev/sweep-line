@@ -19,6 +19,7 @@
 
 ## 2) 缺少输出规模/执行步数熔断（fail-fast 上限）
 
+- 状态：已实现（见 `plans/fail-fast-limits.md`，以及 `../src/limits.rs` / `../src/run.rs` / `../src/sweep/bo.rs` / `../src/session.rs`）。
 - 位置：`../src/run.rs` 的 `run_phase1` 以及 `../src/sweep/bo.rs` 的 trace/输出累计逻辑。
 - 现象：当前 phase1 直接构建并返回：
   - `Vec<PointIntersectionRecord>`（点交 pair 列表）
@@ -27,8 +28,8 @@
 - 影响：
   - 输入线段数较大或构造退化用例时，可能出现内存/时间不可控；
   - 尤其 `../src/sweep/bo.rs` 的 `record_endpoint_pairs` 在同点端点聚集时会产生 `O(k^2)` 记录，容易造成输出爆炸。
-- 相关约定：`phase2-precheck.md` 已提出 `max_session_bytes`/`max_trace_steps` 等 fail-fast 策略，但代码尚未落地。
-- 建议方向（非实现）：
+- 相关约定：`phase2-precheck.md` 已提出 `max_session_bytes`/`max_trace_steps` 等 fail-fast 策略（已落地）。
+- 实现要点（已落地）：
   - 定义统一的 `Limits`（或 `Phase1Options`）参数：至少包含 `max_trace_steps`、`max_intersections`、`max_trace_active_entries_total`、`max_session_bytes`（默认值可直接沿用 `phase2-precheck.md`）；
   - 在生成过程中做“增量计数 + 早退出”：每次追加交点/trace step/active snapshot 时检查上限并返回错误；
   - 错误信息包含：实际值/上限/建议（缩小输入规模、关闭 trace、降低随机用例参数等），避免“看似成功但输出不完整”的截断策略。

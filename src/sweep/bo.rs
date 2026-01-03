@@ -1,3 +1,4 @@
+use core::fmt;
 use std::collections::BTreeSet;
 
 use crate::geom::intersection::{
@@ -5,6 +6,7 @@ use crate::geom::intersection::{
 };
 use crate::geom::point::PointRat;
 use crate::geom::segment::{SegmentId, Segments};
+use crate::limits::{LimitExceeded, LimitKind, Limits};
 use crate::rational::Rational;
 use crate::sweep::event_queue::{Event, EventQueue};
 use crate::sweep::status::{SweepStatus, SweepStatusError, TreapSweepStatus};
@@ -14,11 +16,27 @@ use crate::trace::TraceStep;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BoError {
     Status(SweepStatusError),
+    Limits(LimitExceeded),
 }
 
 impl From<SweepStatusError> for BoError {
     fn from(value: SweepStatusError) -> Self {
         BoError::Status(value)
+    }
+}
+
+impl From<LimitExceeded> for BoError {
+    fn from(value: LimitExceeded) -> Self {
+        BoError::Limits(value)
+    }
+}
+
+impl fmt::Display for BoError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BoError::Status(e) => write!(f, "{}", e),
+            BoError::Limits(e) => write!(f, "{}", e),
+        }
     }
 }
 
@@ -28,20 +46,35 @@ impl From<SweepStatusError> for BoError {
 /// - 垂直线段不进入状态结构，而是在 x 批处理结束时用 `range_by_y` 做命中查询；
 /// - 对共线重叠只返回占位，不输出“重叠段”（第二阶段再做）。
 pub fn enumerate_point_intersections(segments: &Segments) -> Result<Vec<PointIntersectionRecord>, BoError> {
-    Ok(enumerate_point_intersections_with_trace(segments)?.0)
+    enumerate_point_intersections_with_limits(segments, Limits::default())
 }
 
 pub fn enumerate_point_intersections_with_trace(
     segments: &Segments,
 ) -> Result<(Vec<PointIntersectionRecord>, Trace), BoError> {
+    enumerate_point_intersections_with_trace_and_limits(segments, Limits::default())
+}
+
+pub fn enumerate_point_intersections_with_limits(
+    segments: &Segments,
+    limits: Limits,
+) -> Result<Vec<PointIntersectionRecord>, BoError> {
+    run_bentley_ottmann(segments, None, limits)
+}
+
+pub fn enumerate_point_intersections_with_trace_and_limits(
+    segments: &Segments,
+    limits: Limits,
+) -> Result<(Vec<PointIntersectionRecord>, Trace), BoError> {
     let mut trace = Trace::default();
-    let intersections = run_bentley_ottmann(segments, Some(&mut trace))?;
+    let intersections = run_bentley_ottmann(segments, Some(&mut trace), limits)?;
     Ok((intersections, trace))
 }
 
 fn run_bentley_ottmann(
     segments: &Segments,
     mut trace: Option<&mut Trace>,
+    limits: Limits,
 ) -> Result<Vec<PointIntersectionRecord>, BoError> {
     let mut queue = EventQueue::new();
     for id in 0..segments.len() {
@@ -56,12 +89,51 @@ fn run_bentley_ottmann(
     let mut pending_vertical: BTreeSet<SegmentId> = BTreeSet::new();
     let mut pending_x: Option<Rational> = None;
     let mut out: Vec<PointIntersectionRecord> = Vec::new();
+    let mut trace_active_entries_total: usize = 0;
+
+    let mut push_trace_step_with_limits = |trace: &mut Trace, step: TraceStep| -> Result<(), BoError> {
+        let next_steps = trace.steps.len() + 1;
+        if next_steps > limits.max_trace_steps {
+            return Err(BoError::Limits(LimitExceeded {
+                kind: LimitKind::TraceSteps,
+                limit: limits.max_trace_steps,
+                actual: next_steps,
+            }));
+        }
+
+        let next_active_total = trace_active_entries_total.saturating_add(step.active.len());
+        if next_active_total > limits.max_trace_active_entries_total {
+            return Err(BoError::Limits(LimitExceeded {
+                kind: LimitKind::TraceActiveEntriesTotal,
+                limit: limits.max_trace_active_entries_total,
+                actual: next_active_total,
+            }));
+        }
+
+        trace_active_entries_total = next_active_total;
+        trace.steps.push(step);
+        Ok(())
+    };
+
+    let ensure_can_add_intersections = |current_len: usize, additional: usize| -> Result<(), BoError> {
+            let next_len = current_len.saturating_add(additional);
+            if next_len > limits.max_intersections {
+                return Err(BoError::Limits(LimitExceeded {
+                    kind: LimitKind::Intersections,
+                    limit: limits.max_intersections,
+                    actual: next_len,
+                }));
+            }
+            Ok(())
+        };
 
     while let Some((point, events)) = queue.pop_next_batch() {
         if let Some(x) = pending_x {
             if point.x != x {
                 if !pending_vertical.is_empty() {
-                    let hits = collect_vertical_hits(segments, &status, &pending_vertical)?;
+                    let hits =
+                        collect_vertical_hits(segments, &status, &pending_vertical, limits, out.len())?;
+                    ensure_can_add_intersections(out.len(), hits.len())?;
                     out.extend_from_slice(&hits);
 
                     if let Some(trace) = trace.as_deref_mut() {
@@ -81,7 +153,7 @@ fn run_bentley_ottmann(
                                 v_id.0, y_min, y_max
                             ));
                         }
-                        trace.steps.push(step);
+                        push_trace_step_with_limits(trace, step)?;
                     }
                 }
 
@@ -105,9 +177,7 @@ fn run_bentley_ottmann(
 
         // 基础覆盖：同一事件点上“作为端点出现”的线段两两之间一定相交于该点。
         // 这能补齐例如 “一条线段在此结束、另一条线段在此开始” 的端点接触情形。
-        let endpoint_pairs_before = out.len();
-        record_endpoint_pairs(point, &events, &mut out);
-        let endpoint_pairs_added = out.len() - endpoint_pairs_before;
+        let endpoint_pairs_added = record_endpoint_pairs(point, &events, &mut out, limits)?;
         if endpoint_pairs_added != 0 {
             if let Some(step) = step.as_mut() {
                 step.notes.push(format!("EndpointPairs: {}", endpoint_pairs_added));
@@ -169,6 +239,7 @@ fn run_bentley_ottmann(
             &endpoint_ids,
             &mut out,
             step.as_mut(),
+            limits,
         )?;
 
         // 垂直线段的批末查询发生在 x 变化时；这会遗漏“非垂直线段在该 x 处结束”的端点接触。
@@ -180,7 +251,8 @@ fn run_bentley_ottmann(
             &l,
             &mut out,
             step.as_mut(),
-        );
+            limits,
+        )?;
 
         let mut c: Vec<SegmentId> = Vec::new();
         for (a, b) in &intersection_pairs {
@@ -198,6 +270,7 @@ fn run_bentley_ottmann(
                         format_point(ip)
                     ));
                 }
+                ensure_can_add_intersections(out.len(), 1)?;
                 out.push(PointIntersectionRecord {
                     point: ip,
                     kind,
@@ -293,13 +366,14 @@ fn run_bentley_ottmann(
             let mut step = step.expect("trace 存在时 step 应为 Some");
             step.active = status.snapshot_order();
             step.intersections.extend_from_slice(&out[out_before..]);
-            trace.steps.push(step);
+            push_trace_step_with_limits(trace, step)?;
         }
     }
 
     if let Some(x) = pending_x {
         if !pending_vertical.is_empty() {
-            let hits = collect_vertical_hits(segments, &status, &pending_vertical)?;
+            let hits = collect_vertical_hits(segments, &status, &pending_vertical, limits, out.len())?;
+            ensure_can_add_intersections(out.len(), hits.len())?;
             out.extend_from_slice(&hits);
 
             if let Some(trace) = trace.as_deref_mut() {
@@ -319,7 +393,7 @@ fn run_bentley_ottmann(
                         v_id.0, y_min, y_max
                     ));
                 }
-                trace.steps.push(step);
+                push_trace_step_with_limits(trace, step)?;
             }
         }
     }
@@ -331,6 +405,8 @@ fn collect_vertical_hits(
     segments: &Segments,
     status: &impl SweepStatus,
     vertical: &BTreeSet<SegmentId>,
+    limits: Limits,
+    out_len_base: usize,
 ) -> Result<Vec<PointIntersectionRecord>, BoError> {
     if vertical.is_empty() || status.is_empty() {
         return Ok(Vec::new());
@@ -364,6 +440,14 @@ fn collect_vertical_hits(
             }
 
             let (a, b) = if v_id <= s_id { (v_id, s_id) } else { (s_id, v_id) };
+            let current_total = out_len_base.saturating_add(hits.len());
+            if current_total.saturating_add(1) > limits.max_intersections {
+                return Err(BoError::Limits(LimitExceeded {
+                    kind: LimitKind::Intersections,
+                    limit: limits.max_intersections,
+                    actual: current_total.saturating_add(1),
+                }));
+            }
             hits.push(PointIntersectionRecord { point, kind, a, b });
         }
     }
@@ -371,7 +455,12 @@ fn collect_vertical_hits(
     Ok(hits)
 }
 
-fn record_endpoint_pairs(point: PointRat, events: &[Event], out: &mut Vec<PointIntersectionRecord>) {
+fn record_endpoint_pairs(
+    point: PointRat,
+    events: &[Event],
+    out: &mut Vec<PointIntersectionRecord>,
+    limits: Limits,
+) -> Result<usize, BoError> {
     let mut ids: Vec<SegmentId> = events
         .iter()
         .filter_map(|e| match *e {
@@ -381,6 +470,17 @@ fn record_endpoint_pairs(point: PointRat, events: &[Event], out: &mut Vec<PointI
         .collect();
     ids.sort();
     ids.dedup();
+
+    let k = ids.len() as u128;
+    let pairs_u128 = (k * (k.saturating_sub(1))) / 2;
+    let pairs: usize = pairs_u128.try_into().unwrap_or(usize::MAX);
+    if out.len().saturating_add(pairs) > limits.max_intersections {
+        return Err(BoError::Limits(LimitExceeded {
+            kind: LimitKind::Intersections,
+            limit: limits.max_intersections,
+            actual: out.len().saturating_add(pairs),
+        }));
+    }
 
     for i in 0..ids.len() {
         for j in (i + 1)..ids.len() {
@@ -392,6 +492,8 @@ fn record_endpoint_pairs(point: PointRat, events: &[Event], out: &mut Vec<PointI
             });
         }
     }
+
+    Ok(pairs)
 }
 
 fn record_endpoint_on_interior_hits(
@@ -401,6 +503,7 @@ fn record_endpoint_on_interior_hits(
     endpoint_ids: &[SegmentId],
     out: &mut Vec<PointIntersectionRecord>,
     mut trace_step: Option<&mut TraceStep>,
+    limits: Limits,
 ) -> Result<(), BoError> {
     if endpoint_ids.is_empty() || status.is_empty() {
         return Ok(());
@@ -435,6 +538,13 @@ fn record_endpoint_on_interior_hits(
             }
 
             let (a, b) = if e_id <= s_id { (e_id, s_id) } else { (s_id, e_id) };
+            if out.len().saturating_add(1) > limits.max_intersections {
+                return Err(BoError::Limits(LimitExceeded {
+                    kind: LimitKind::Intersections,
+                    limit: limits.max_intersections,
+                    actual: out.len().saturating_add(1),
+                }));
+            }
             out.push(PointIntersectionRecord {
                 point: ip,
                 kind,
@@ -460,9 +570,10 @@ fn record_vertical_endpoint_touches_for_ending_segments(
     ending_ids: &[SegmentId],
     out: &mut Vec<PointIntersectionRecord>,
     mut trace_step: Option<&mut TraceStep>,
-) {
+    limits: Limits,
+) -> Result<(), BoError> {
     if pending_vertical.is_empty() || ending_ids.is_empty() {
-        return;
+        return Ok(());
     }
 
     let mut added = 0_usize;
@@ -487,6 +598,13 @@ fn record_vertical_endpoint_touches_for_ending_segments(
             }
 
             let (a, b) = if v_id <= s_id { (v_id, s_id) } else { (s_id, v_id) };
+            if out.len().saturating_add(1) > limits.max_intersections {
+                return Err(BoError::Limits(LimitExceeded {
+                    kind: LimitKind::Intersections,
+                    limit: limits.max_intersections,
+                    actual: out.len().saturating_add(1),
+                }));
+            }
             out.push(PointIntersectionRecord {
                 point: ip,
                 kind,
@@ -502,6 +620,7 @@ fn record_vertical_endpoint_touches_for_ending_segments(
             step.notes.push(format!("VerticalEndpointTouch(end): {}", added));
         }
     }
+    Ok(())
 }
 
 fn schedule_or_record_pair(
@@ -625,6 +744,7 @@ mod tests {
     use super::*;
     use crate::geom::fixed::PointI64;
     use crate::geom::segment::Segment;
+    use crate::limits::{LimitExceeded, LimitKind, Limits};
     use crate::trace::TraceStepKind;
 
     #[test]
@@ -927,5 +1047,95 @@ mod tests {
             .filter(|s| s.kind == TraceStepKind::VerticalFlush)
             .count();
         assert_eq!(flush_count as i64, n);
+    }
+
+    #[test]
+    fn fails_fast_when_trace_steps_exceed_limit() {
+        let mut segments = Segments::new();
+        segments.push(Segment {
+            a: PointI64 { x: 0, y: 0 },
+            b: PointI64 { x: 10, y: 0 },
+            source_index: 0,
+        });
+
+        let limits = Limits {
+            max_trace_steps: 1,
+            ..Limits::default()
+        };
+        let err = enumerate_point_intersections_with_trace_and_limits(&segments, limits).unwrap_err();
+        match err {
+            BoError::Limits(LimitExceeded {
+                kind: LimitKind::TraceSteps,
+                limit,
+                actual,
+            }) => {
+                assert_eq!(limit, 1);
+                assert_eq!(actual, 2);
+            }
+            other => panic!("期望 TraceSteps 超限，但得到：{other:?}"),
+        }
+        assert!(err.to_string().contains("建议："));
+    }
+
+    #[test]
+    fn fails_fast_when_trace_active_entries_total_exceed_limit() {
+        let mut segments = Segments::new();
+        segments.push(Segment {
+            a: PointI64 { x: 0, y: 0 },
+            b: PointI64 { x: 10, y: 0 },
+            source_index: 0,
+        });
+
+        let limits = Limits {
+            max_trace_active_entries_total: 0,
+            ..Limits::default()
+        };
+        let err = enumerate_point_intersections_with_trace_and_limits(&segments, limits).unwrap_err();
+        match err {
+            BoError::Limits(LimitExceeded {
+                kind: LimitKind::TraceActiveEntriesTotal,
+                limit,
+                actual,
+            }) => {
+                assert_eq!(limit, 0);
+                assert_eq!(actual, 1);
+            }
+            other => panic!("期望 TraceActiveEntriesTotal 超限，但得到：{other:?}"),
+        }
+        assert!(err.to_string().contains("建议："));
+    }
+
+    #[test]
+    fn fails_fast_when_intersections_exceed_limit_due_to_endpoint_pairs() {
+        let mut segments = Segments::new();
+        for i in 0_usize..4 {
+            segments.push(Segment {
+                a: PointI64 { x: 0, y: 0 },
+                b: PointI64 {
+                    x: 10,
+                    y: i as i64,
+                },
+                source_index: i,
+            });
+        }
+
+        // 4 条线段共享同一点端点时：EndpointPairs 会枚举 4*3/2 = 6 条 pair 记录。
+        let limits = Limits {
+            max_intersections: 2,
+            ..Limits::default()
+        };
+        let err = enumerate_point_intersections_with_limits(&segments, limits).unwrap_err();
+        match err {
+            BoError::Limits(LimitExceeded {
+                kind: LimitKind::Intersections,
+                limit,
+                actual,
+            }) => {
+                assert_eq!(limit, 2);
+                assert_eq!(actual, 6);
+            }
+            other => panic!("期望 Intersections 超限，但得到：{other:?}"),
+        }
+        assert!(err.to_string().contains("建议："));
     }
 }
