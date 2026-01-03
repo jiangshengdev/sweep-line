@@ -17,6 +17,7 @@ python3 -m http.server 8000
 - 左侧“示例列表”会自动尝试加载：
   - `viewer/generated/index.json`（Rust 生成的示例索引）
   - `viewer/examples/index.json`（仓库内置示例）
+- 示例列表与“选择示例”弹层会按来源与文件夹分组展示（例如 `generated/curated|perf|random`），便于快速定位。
 
 ## 生成示例（Rust）
 在仓库根目录运行：

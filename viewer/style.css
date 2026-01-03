@@ -312,6 +312,13 @@ button:disabled {
   margin-top: 6px;
 }
 
+.session-list__group--folder {
+  font-size: 11px;
+  margin-top: 2px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
 .session-list--grid .session-list__group {
   grid-column: 1 / -1;
 }

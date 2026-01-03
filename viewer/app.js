@@ -393,6 +393,63 @@ function clearChildren(node) {
   }
 }
 
+function dirnameOfPath(path) {
+  const raw = String(path || "");
+  const idx = raw.lastIndexOf("/");
+  if (idx <= 0) {
+    return "";
+  }
+  return raw.slice(0, idx);
+}
+
+function folderKeyForSessionIndexItem(item) {
+  const rawPath = String(item?.path || "");
+  const slash = rawPath.indexOf("/");
+  if (slash < 0) {
+    return "";
+  }
+  const root = rawPath.slice(0, slash);
+  if (root === "generated" || root === "examples") {
+    const rel = rawPath.slice(root.length + 1);
+    return dirnameOfPath(rel);
+  }
+  return dirnameOfPath(rawPath);
+}
+
+function groupSessionIndexItemsForRender(items) {
+  const groups = [];
+  const groupByTitle = new Map();
+
+  for (const item of items) {
+    const groupTitle = String(item?.groupTitle || "");
+    let group = groupByTitle.get(groupTitle);
+    if (!group) {
+      group = {
+        title: groupTitle,
+        folders: [],
+        folderMap: new Map(),
+      };
+      groups.push(group);
+      groupByTitle.set(groupTitle, group);
+    }
+
+    const folderKey = folderKeyForSessionIndexItem(item);
+    let folderGroup = group.folderMap.get(folderKey);
+    if (!folderGroup) {
+      folderGroup = { key: folderKey, items: [] };
+      group.folders.push(folderGroup);
+      group.folderMap.set(folderKey, folderGroup);
+    }
+    folderGroup.items.push(item);
+  }
+
+  for (const group of groups) {
+    delete group.folderMap;
+  }
+
+  return groups;
+}
+
 function normalizeSearchQuery(query) {
   return String(query || "").trim().toLowerCase();
 }
@@ -1290,39 +1347,53 @@ function renderSessionListInto({ list, empty, items, currentSource, onSelect }) 
   }
 
   const fragment = document.createDocumentFragment();
-  let lastGroup = null;
-  for (const item of items) {
-    if (item.groupTitle !== lastGroup) {
-      lastGroup = item.groupTitle;
+  const groups = groupSessionIndexItemsForRender(items);
+  for (const group of groups) {
+    if (group.title) {
       const groupLi = document.createElement("li");
       groupLi.className = "session-list__group";
-      groupLi.textContent = item.groupTitle;
+      groupLi.textContent = group.title;
       fragment.appendChild(groupLi);
     }
 
-    const li = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "session-list__item";
-    button.dataset.path = item.path;
-    button.classList.toggle("session-list__item--active", currentSource && item.path === currentSource);
+    const showRootFolder = group.folders.some((folder) => folder.key);
+    for (const folder of group.folders) {
+      if (folder.key || showRootFolder) {
+        const folderLi = document.createElement("li");
+        folderLi.className = "session-list__group session-list__group--folder mono";
+        folderLi.textContent = folder.key ? `${folder.key}/` : "（根目录）";
+        fragment.appendChild(folderLi);
+      }
 
-    const title = document.createElement("div");
-    title.className = "session-item__title";
-    title.textContent = item.title;
+      for (const item of folder.items) {
+        const li = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "session-list__item";
+        button.dataset.path = item.path;
+        button.classList.toggle(
+          "session-list__item--active",
+          currentSource && item.path === currentSource,
+        );
 
-    const meta = document.createElement("div");
-    meta.className = "session-item__meta mono";
-    meta.textContent = `segments=${item.segments} steps=${item.steps} warnings=${item.warnings}`;
+        const title = document.createElement("div");
+        title.className = "session-item__title";
+        title.textContent = item.title;
 
-    button.appendChild(title);
-    button.appendChild(meta);
-    button.addEventListener("click", () => {
-      onSelect(item);
-    });
+        const meta = document.createElement("div");
+        meta.className = "session-item__meta mono";
+        meta.textContent = `segments=${item.segments} steps=${item.steps} warnings=${item.warnings}`;
 
-    li.appendChild(button);
-    fragment.appendChild(li);
+        button.appendChild(title);
+        button.appendChild(meta);
+        button.addEventListener("click", () => {
+          onSelect(item);
+        });
+
+        li.appendChild(button);
+        fragment.appendChild(li);
+      }
+    }
   }
 
   list.appendChild(fragment);
