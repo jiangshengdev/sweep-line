@@ -4,6 +4,12 @@ const elements = {
   fileInput: document.getElementById("file-input"),
   resetView: document.getElementById("reset-view"),
   reloadIndex: document.getElementById("reload-index"),
+  openSessionPicker: document.getElementById("open-session-picker"),
+  sessionPicker: document.getElementById("session-picker"),
+  sessionPickerClose: document.getElementById("session-picker-close"),
+  sessionPickerSearch: document.getElementById("session-picker-search"),
+  sessionPickerList: document.getElementById("session-picker-list"),
+  sessionPickerEmpty: document.getElementById("session-picker-empty"),
   sessionListViewList: document.getElementById("session-list-view-list"),
   sessionListViewGrid: document.getElementById("session-list-view-grid"),
   prevStep: document.getElementById("prev-step"),
@@ -49,6 +55,11 @@ const appState = {
     intersectionRadiusCurrent: 3.5,
     boldActiveSegments: false,
     sessionListViewMode: "list",
+  },
+  ui: {
+    sessionPickerOpen: false,
+    sessionPickerQuery: "",
+    sessionPickerReturnFocus: null,
   },
   viewport: {
     widthCss: 1,
@@ -287,6 +298,63 @@ function setBoldActiveSegments(enabled) {
   requestRender();
 }
 
+function setSessionPickerVisible(visible) {
+  if (!elements.sessionPicker) {
+    return;
+  }
+  const next = Boolean(visible);
+  elements.sessionPicker.classList.toggle("hidden", !next);
+  elements.sessionPicker.setAttribute("aria-hidden", String(!next));
+  appState.ui.sessionPickerOpen = next;
+}
+
+function openSessionPicker() {
+  if (!elements.sessionPicker) {
+    return;
+  }
+  if (appState.ui.sessionPickerOpen) {
+    return;
+  }
+  appState.ui.sessionPickerReturnFocus =
+    document.activeElement && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+
+  appState.ui.sessionPickerQuery = "";
+  if (elements.sessionPickerSearch) {
+    elements.sessionPickerSearch.value = "";
+  }
+
+  setSessionPickerVisible(true);
+  renderSessionPickerList();
+  if (elements.sessionPickerSearch) {
+    elements.sessionPickerSearch.focus();
+    elements.sessionPickerSearch.select?.();
+  }
+}
+
+function closeSessionPicker() {
+  if (!elements.sessionPicker) {
+    return;
+  }
+  if (!appState.ui.sessionPickerOpen) {
+    return;
+  }
+  setSessionPickerVisible(false);
+  if (appState.ui.sessionPickerReturnFocus) {
+    appState.ui.sessionPickerReturnFocus.focus?.();
+  }
+  appState.ui.sessionPickerReturnFocus = null;
+}
+
+function toggleSessionPicker() {
+  if (appState.ui.sessionPickerOpen) {
+    closeSessionPicker();
+  } else {
+    openSessionPicker();
+  }
+}
+
 function setSessionListViewMode(nextMode) {
   if (nextMode !== "list" && nextMode !== "grid") {
     return;
@@ -323,6 +391,39 @@ function clearChildren(node) {
   while (node.firstChild) {
     node.removeChild(node.firstChild);
   }
+}
+
+function normalizeSearchQuery(query) {
+  return String(query || "").trim().toLowerCase();
+}
+
+function sessionIndexItemMatchesQuery(item, normalizedQuery) {
+  if (!normalizedQuery) {
+    return true;
+  }
+  const haystacks = [
+    item.title,
+    item.id,
+    item.groupTitle,
+    ...(Array.isArray(item.tags) ? item.tags : []),
+  ];
+  for (const raw of haystacks) {
+    if (!raw) {
+      continue;
+    }
+    if (String(raw).toLowerCase().includes(normalizedQuery)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function filterSessionIndexItems(items, query) {
+  const normalized = normalizeSearchQuery(query);
+  if (!normalized) {
+    return items;
+  }
+  return items.filter((item) => sessionIndexItemMatchesQuery(item, normalized));
 }
 
 function appendListItems(list, items) {
@@ -1169,16 +1270,24 @@ async function loadIndexAndRenderList() {
   }
   appState.index.items = items;
   renderSessionList();
+  renderSessionPickerList();
 }
 
-function renderSessionList() {
-  clearChildren(elements.sessionList);
-  const items = appState.index.items;
-  if (!items.length) {
-    elements.sessionListEmpty.hidden = false;
+function renderSessionListInto({ list, empty, items, currentSource, onSelect }) {
+  if (!list) {
     return;
   }
-  elements.sessionListEmpty.hidden = true;
+  clearChildren(list);
+
+  if (!items.length) {
+    if (empty) {
+      empty.hidden = false;
+    }
+    return;
+  }
+  if (empty) {
+    empty.hidden = true;
+  }
 
   const fragment = document.createDocumentFragment();
   let lastGroup = null;
@@ -1196,6 +1305,7 @@ function renderSessionList() {
     button.type = "button";
     button.className = "session-list__item";
     button.dataset.path = item.path;
+    button.classList.toggle("session-list__item--active", currentSource && item.path === currentSource);
 
     const title = document.createElement("div");
     title.className = "session-item__title";
@@ -1207,28 +1317,76 @@ function renderSessionList() {
 
     button.appendChild(title);
     button.appendChild(meta);
-    button.addEventListener("click", async () => {
-      try {
-        await loadFromUrl(item.path);
-      } catch (error) {
-        handleError(error);
-      }
+    button.addEventListener("click", () => {
+      onSelect(item);
     });
 
     li.appendChild(button);
     fragment.appendChild(li);
   }
 
-  elements.sessionList.appendChild(fragment);
-  updateSessionListSelection();
+  list.appendChild(fragment);
+}
+
+function renderSessionList() {
+  renderSessionListInto({
+    list: elements.sessionList,
+    empty: elements.sessionListEmpty,
+    items: appState.index.items,
+    currentSource: appState.sessionSource,
+    onSelect: (item) => {
+      loadFromUrl(item.path).catch(handleError);
+    },
+  });
+}
+
+function renderSessionPickerList() {
+  if (!elements.sessionPickerList || !elements.sessionPickerEmpty) {
+    return;
+  }
+
+  const allItems = appState.index.items;
+  const query = appState.ui.sessionPickerQuery;
+  const filtered = filterSessionIndexItems(allItems, query);
+
+  if (!allItems.length) {
+    elements.sessionPickerEmpty.textContent =
+      "未找到索引：请运行 pnpm gen:sessions 生成 viewer/generated/index.json，或手动加载 session.json。";
+  } else if (!filtered.length && normalizeSearchQuery(query)) {
+    elements.sessionPickerEmpty.textContent = "无匹配结果";
+  } else {
+    elements.sessionPickerEmpty.textContent = "";
+  }
+
+  renderSessionListInto({
+    list: elements.sessionPickerList,
+    empty: elements.sessionPickerEmpty,
+    items: filtered,
+    currentSource: appState.sessionSource,
+    onSelect: (item) => {
+      loadFromUrl(item.path)
+        .then(() => {
+          closeSessionPicker();
+        })
+        .catch(handleError);
+    },
+  });
+}
+
+function updateSessionListSelectionIn(container, current) {
+  if (!container) {
+    return;
+  }
+  const buttons = container.querySelectorAll("button.session-list__item");
+  for (const btn of buttons) {
+    btn.classList.toggle("session-list__item--active", current && btn.dataset.path === current);
+  }
 }
 
 function updateSessionListSelection() {
   const current = appState.sessionSource;
-  const buttons = elements.sessionList.querySelectorAll("button.session-list__item");
-  for (const btn of buttons) {
-    btn.classList.toggle("session-list__item--active", current && btn.dataset.path === current);
-  }
+  updateSessionListSelectionIn(elements.sessionList, current);
+  updateSessionListSelectionIn(elements.sessionPickerList, current);
 }
 
 async function loadFromUrl(url) {
@@ -1272,6 +1430,26 @@ function installEventHandlers() {
   elements.nextStep.disabled = true;
   elements.playPause.disabled = true;
   elements.stepSlider.disabled = true;
+
+  elements.openSessionPicker?.addEventListener("click", () => {
+    toggleSessionPicker();
+  });
+
+  elements.sessionPickerClose?.addEventListener("click", () => {
+    closeSessionPicker();
+  });
+
+  elements.sessionPickerSearch?.addEventListener("input", () => {
+    appState.ui.sessionPickerQuery = elements.sessionPickerSearch.value;
+    renderSessionPickerList();
+  });
+
+  elements.sessionPicker?.addEventListener("pointerdown", (event) => {
+    if (event.target !== elements.sessionPicker) {
+      return;
+    }
+    closeSessionPicker();
+  });
 
   elements.themeMode?.addEventListener("change", () => {
     setThemeMode(elements.themeMode.value);
@@ -1423,6 +1601,20 @@ function installEventHandlers() {
   );
 
   window.addEventListener("keydown", (event) => {
+    if (appState.ui.sessionPickerOpen) {
+      if (event.code === "Escape") {
+        event.preventDefault();
+        closeSessionPicker();
+      }
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.code === "KeyK") {
+      event.preventDefault();
+      openSessionPicker();
+      return;
+    }
+
     if (event.target && ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)) {
       return;
     }

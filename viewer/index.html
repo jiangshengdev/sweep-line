@@ -90,6 +90,15 @@
           <h2>示例列表</h2>
           <div class="list-actions">
             <button id="reload-index" type="button">刷新</button>
+            <button
+              id="open-session-picker"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="session-picker"
+              title="打开示例选择器（Ctrl/⌘+K）"
+            >
+              浏览
+            </button>
             <div class="segmented" role="group" aria-label="示例视图">
               <button
                 id="session-list-view-list"
@@ -185,6 +194,35 @@
     <footer class="statusbar">
       <span id="status">未加载数据</span>
     </footer>
+
+    <div
+      id="session-picker"
+      class="session-picker hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="示例选择器"
+      aria-hidden="true"
+    >
+      <div class="session-picker__surface" role="document">
+        <div class="session-picker__header">
+          <div class="session-picker__title">选择示例</div>
+          <input
+            id="session-picker-search"
+            type="text"
+            class="session-picker__search"
+            placeholder="搜索标题 / id / tag"
+            autocomplete="off"
+            aria-label="搜索示例"
+          />
+          <button id="session-picker-close" type="button">关闭</button>
+        </div>
+        <div class="session-picker__content">
+          <ul id="session-picker-list" class="session-list session-list--grid"></ul>
+          <div id="session-picker-empty" class="muted" hidden>无匹配结果</div>
+          <div class="muted">提示：按 <span class="mono">Esc</span> 关闭</div>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="./app.js"></script>
   </body>
