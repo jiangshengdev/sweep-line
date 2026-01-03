@@ -22,6 +22,8 @@
 - 只要任务需要修改仓库内容：必须先创建 `worktrees/<task>` 并切换到该目录再开始实现；禁止在主工作区直接改动后再“补做 worktree”。
 - 如果不确定任务是否会演变为写入/实现：默认也先新建 worktree + 分支（多代理并行更安全；最终仍需合并回 `main`，相比直接改主工作区只有益处、几乎无弊端）。
 - Codex CLI 注意：创建 worktree 只是准备动作；后续所有命令与 `apply_patch` 都必须指向 `worktrees/<task>`，否则仍可能误写主工作区。
+  - **硬规则**：只要是 `apply_patch`，文件路径必须以 `worktrees/<task>/...` 开头；看到不是这个前缀就不要执行。
+  - 命令层面隔离：所有可能写入的命令都用工具调用的 `workdir=worktrees/<task>` 参数运行，避免“以为在 worktree、实际在根目录”的错觉。
   - **最推荐**：使用工具调用的 `workdir=worktrees/<task>` 参数来运行命令（例如 `git add/commit/worktree/rebase/merge`），确保命令前缀仍是 `git ...`，便于沙盒/放行规则匹配。
   - 避免使用 `git -C <dir> ...`：容易导致命令前缀不匹配（例如规则只放行 `git add`，但实际前缀变成 `git -C`），从而触发不必要的权限拦截。
   - 避免使用 `cd worktrees/<task> && git ...` 这种链式命令：命令前缀会变成 `cd`，同样可能绕开“按前缀放行”的规则。
