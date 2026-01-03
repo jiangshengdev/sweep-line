@@ -674,6 +674,36 @@ mod tests {
     }
 
     #[test]
+    fn does_not_crash_for_shared_end_endpoint_touch() {
+        // 回归测试：历史上会把端点接触也调度为 Intersection，导致在同点批处理里先删除后重排触发 SegmentNotFound。
+        let mut segments = Segments::new();
+        let a = segments.push(Segment {
+            a: PointI64 { x: 0, y: 0 },
+            b: PointI64 { x: 10, y: 0 },
+            source_index: 0,
+        });
+        let b = segments.push(Segment {
+            a: PointI64 { x: 0, y: 10 },
+            b: PointI64 { x: 10, y: 0 },
+            source_index: 1,
+        });
+
+        let out = enumerate_point_intersections(&segments).unwrap();
+        assert_eq!(
+            out,
+            vec![PointIntersectionRecord {
+                point: PointRat {
+                    x: Rational::from_int(10),
+                    y: Rational::from_int(0),
+                },
+                kind: PointIntersectionKind::EndpointTouch,
+                a,
+                b,
+            }]
+        );
+    }
+
+    #[test]
     fn supports_vertical_segments_via_range_query() {
         let mut segments = Segments::new();
         let vertical = segments.push(Segment {
