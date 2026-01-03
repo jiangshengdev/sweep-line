@@ -1,5 +1,8 @@
 /target
 /viewer/generated
 
+# Vercel 本地缓存/元数据
+/.vercel/
+
 # 本地 git worktree 工作区
 /worktrees/

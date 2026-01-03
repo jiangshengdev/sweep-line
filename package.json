@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "gen:sessions": "cargo run --bin generate-viewer-sessions",
+    "build": "bash scripts/vercel-build.sh",
     "start": "cd viewer && python3 -m http.server 8000",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
