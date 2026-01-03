@@ -49,13 +49,22 @@
 
 ## 4) 点交分类粒度不足（Phase 2 需求缺口）
 
-- 位置：`../src/geom/intersection.rs` 的 `PointIntersectionKind`。
-- 现象：当前仅有 `Proper` / `EndpointTouch`，无法区分 `EndpointEndpoint` 与 `EndpointInterior`。
-- 影响：Phase 2 若需要对外稳定区分三类（用于前端上色/统计），需要扩展 enum 或在输出层增加子字段。
+- 状态：部分满足——Phase 1 的 `trace.v2/session.v2` 已输出 `endpoint_segments`/`interior_segments`，可派生三类；但核心 enum 与 viewer 目前仍只呈现两类。
+- 位置：
+  - 核心：`../src/geom/intersection.rs` 的 `PointIntersectionKind`。
+  - Viewer：`../viewer/app.js` 的 `parseIntersectionV2` 目前仍将 `kind` 归并为 `Proper/EndpointTouch`。
+- 现象：`PointIntersectionKind` 当前仅有 `Proper` / `EndpointTouch`，无法显式区分 `EndpointEndpoint` 与 `EndpointInterior`。
+- 影响：
+  - 若 Phase 2 需要对外稳定区分三类（用于前端上色/统计），需要明确“派生规则”或扩展对外字段；
+  - 若未来有逻辑需要在 phase1/phase2 内部依赖该分类（而非仅用于展示），则仅靠 `PointIntersectionKind` 不够。
+- 现状补充（可派生）：对按点聚合的 `PointIntersectionGroupRecord`，用两集合即可推导三类：
+  - `Proper`：`endpoint_segments.is_empty()`
+  - `EndpointInterior`：`!endpoint_segments.is_empty()` 且 `!interior_segments.is_empty()`
+  - `EndpointEndpoint`：`endpoint_segments.len() >= 2`（通常此时 `interior_segments` 为空；若同点还有内部穿过，则该点同时包含两种端点相关关系）
 - 建议方向（非实现）：
-  - 扩展 `PointIntersectionKind`：将 `EndpointTouch` 拆成 `EndpointEndpoint` 与 `EndpointInterior`（并保持对外 schema 稳定）；
-  - 或保留 `EndpointTouch`，但在记录/输出里附加子字段（例如每条线段在该点的角色：`Endpoint`/`Interior`），让前端可派生三类；
-  - 若采用 #3 的按点聚合输出：用 `endpoint_segments` 与 `interior_segments` 两集合即可派生 `Proper`/`EndpointEndpoint`/`EndpointInterior`。
+  - 若需要“单一 kind 字段”：在输出层/前端按约定做派生，并在文档里固定优先级；
+  - 若需要“完整语义且不丢信息”：保持 `endpoint_segments/interior_segments` 作为 canonical 表达，前端按需派生三类或多标签；
+  - 若内部算法也要区分：再扩展 `PointIntersectionKind`（或增加新字段）而不是复用 `EndpointTouch`。
 
 ## 5) 可维护性：几何谓词缺少语义注释
 
