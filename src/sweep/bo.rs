@@ -341,6 +341,9 @@ fn collect_vertical_hits(
         let v = segments.get(v_id);
         debug_assert!(v.is_vertical(), "collect_vertical_hits 仅应处理垂直线段");
 
+        let v_a = PointRat::from_i64(v.a);
+        let v_b = PointRat::from_i64(v.b);
+
         let y_min = Rational::from_int(v.a.y.min(v.b.y) as i128);
         let y_max = Rational::from_int(v.a.y.max(v.b.y) as i128);
 
@@ -351,6 +354,14 @@ fn collect_vertical_hits(
             else {
                 continue;
             };
+
+            let s = segments.get(s_id);
+            if (point == v_a || point == v_b)
+                && (point == PointRat::from_i64(s.a) || point == PointRat::from_i64(s.b))
+            {
+                // 端点-端点接触在事件点已由 record_endpoint_pairs 输出，避免在 VerticalFlush 重复输出。
+                continue;
+            }
 
             let (a, b) = if v_id <= s_id { (v_id, s_id) } else { (s_id, v_id) };
             hits.push(PointIntersectionRecord { point, kind, a, b });
@@ -726,6 +737,36 @@ mod tests {
                     y: Rational::from_int(3),
                 },
                 kind: PointIntersectionKind::Proper,
+                a: vertical,
+                b: other,
+            }]
+        );
+    }
+
+    #[test]
+    fn does_not_duplicate_endpoint_touch_when_vertical_and_other_share_endpoint() {
+        // 回归测试：同一个端点接触不应同时由 `record_endpoint_pairs` 与 `VerticalFlush` 重复输出。
+        let mut segments = Segments::new();
+        let vertical = segments.push(Segment {
+            a: PointI64 { x: 0, y: 0 },
+            b: PointI64 { x: 0, y: 10 },
+            source_index: 0,
+        });
+        let other = segments.push(Segment {
+            a: PointI64 { x: 0, y: 0 },
+            b: PointI64 { x: 10, y: 0 },
+            source_index: 1,
+        });
+
+        let out = enumerate_point_intersections(&segments).unwrap();
+        assert_eq!(
+            out,
+            vec![PointIntersectionRecord {
+                point: PointRat {
+                    x: Rational::from_int(0),
+                    y: Rational::from_int(0),
+                },
+                kind: PointIntersectionKind::EndpointTouch,
                 a: vertical,
                 b: other,
             }]
