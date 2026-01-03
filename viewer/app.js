@@ -4,6 +4,8 @@ const elements = {
   fileInput: document.getElementById("file-input"),
   resetView: document.getElementById("reset-view"),
   reloadIndex: document.getElementById("reload-index"),
+  sessionListViewList: document.getElementById("session-list-view-list"),
+  sessionListViewGrid: document.getElementById("session-list-view-grid"),
   prevStep: document.getElementById("prev-step"),
   playPause: document.getElementById("play-pause"),
   nextStep: document.getElementById("next-step"),
@@ -46,6 +48,7 @@ const appState = {
     intersectionRadiusCumulative: 2,
     intersectionRadiusCurrent: 3.5,
     boldActiveSegments: false,
+    sessionListViewMode: "list",
   },
   viewport: {
     widthCss: 1,
@@ -83,6 +86,7 @@ const storageKeys = {
   intersectionRadiusCumulative: "traceViewer.intersectionRadiusCumulative",
   intersectionRadiusCurrent: "traceViewer.intersectionRadiusCurrent",
   boldActiveSegments: "traceViewer.boldActiveSegments",
+  sessionListViewMode: "traceViewer.sessionListViewMode",
 };
 
 function safeStorageGetItem(key) {
@@ -122,6 +126,11 @@ function loadSettingsFromStorage() {
   const themeMode = safeStorageGetItem(storageKeys.themeMode);
   if (themeMode === "system" || themeMode === "light" || themeMode === "dark") {
     appState.settings.themeMode = themeMode;
+  }
+
+  const sessionListViewMode = safeStorageGetItem(storageKeys.sessionListViewMode);
+  if (sessionListViewMode === "list" || sessionListViewMode === "grid") {
+    appState.settings.sessionListViewMode = sessionListViewMode;
   }
 
   const show = safeStorageGetItem(storageKeys.showCumulativeIntersections);
@@ -168,9 +177,25 @@ function applyThemeMode(themeMode) {
   }
 }
 
+function applySessionListViewMode(viewMode) {
+  if (!elements.sessionList) {
+    return;
+  }
+  elements.sessionList.classList.toggle("session-list--grid", viewMode === "grid");
+}
+
 function applySettingsToUi() {
   if (elements.themeMode) {
     elements.themeMode.value = appState.settings.themeMode;
+  }
+  if (elements.sessionListViewList && elements.sessionListViewGrid) {
+    const listActive = appState.settings.sessionListViewMode === "list";
+    elements.sessionListViewList.classList.toggle("segmented__button--active", listActive);
+    elements.sessionListViewList.setAttribute("aria-pressed", String(listActive));
+
+    const gridActive = appState.settings.sessionListViewMode === "grid";
+    elements.sessionListViewGrid.classList.toggle("segmented__button--active", gridActive);
+    elements.sessionListViewGrid.setAttribute("aria-pressed", String(gridActive));
   }
   if (elements.showCumulativeIntersections) {
     elements.showCumulativeIntersections.checked = appState.settings.showCumulativeIntersections;
@@ -194,6 +219,8 @@ function applySettingsToUi() {
   if (elements.boldActiveSegments) {
     elements.boldActiveSegments.checked = appState.settings.boldActiveSegments;
   }
+
+  applySessionListViewMode(appState.settings.sessionListViewMode);
 }
 
 function setThemeMode(nextMode) {
@@ -258,6 +285,18 @@ function setBoldActiveSegments(enabled) {
   applySettingsToUi();
   appState.render.dirtyDynamic = true;
   requestRender();
+}
+
+function setSessionListViewMode(nextMode) {
+  if (nextMode !== "list" && nextMode !== "grid") {
+    return;
+  }
+  if (appState.settings.sessionListViewMode === nextMode) {
+    return;
+  }
+  appState.settings.sessionListViewMode = nextMode;
+  safeStorageSetItem(storageKeys.sessionListViewMode, nextMode);
+  applySettingsToUi();
 }
 
 function getCanvasPalette() {
@@ -1252,6 +1291,14 @@ function installEventHandlers() {
 
   elements.boldActiveSegments?.addEventListener("change", () => {
     setBoldActiveSegments(elements.boldActiveSegments.checked);
+  });
+
+  elements.sessionListViewList?.addEventListener("click", () => {
+    setSessionListViewMode("list");
+  });
+
+  elements.sessionListViewGrid?.addEventListener("click", () => {
+    setSessionListViewMode("grid");
   });
 
   elements.reloadIndex.addEventListener("click", async () => {

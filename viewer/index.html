@@ -90,6 +90,30 @@
           <h2>示例列表</h2>
           <div class="list-actions">
             <button id="reload-index" type="button">刷新</button>
+            <div class="segmented" role="group" aria-label="示例视图">
+              <button
+                id="session-list-view-list"
+                type="button"
+                class="segmented__button"
+                data-mode="list"
+                aria-pressed="true"
+                aria-controls="session-list"
+                title="列表视图"
+              >
+                列表
+              </button>
+              <button
+                id="session-list-view-grid"
+                type="button"
+                class="segmented__button"
+                data-mode="grid"
+                aria-pressed="false"
+                aria-controls="session-list"
+                title="网格视图"
+              >
+                网格
+              </button>
+            </div>
           </div>
           <ul id="session-list" class="session-list"></ul>
           <div id="session-list-empty" class="muted">
