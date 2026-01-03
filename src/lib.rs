@@ -9,4 +9,4 @@ pub mod trace;
 
 pub use preprocess::{InputCoord, InputSegmentF64, PreprocessOutput, Warning, WarningKind, preprocess_segments};
 pub use rational::Rational;
-pub use session::{SESSION_SCHEMA, session_v1_to_json_string, session_v1_to_json_string_limited};
+pub use session::{SESSION_SCHEMA, session_v2_to_json_string, session_v2_to_json_string_limited};

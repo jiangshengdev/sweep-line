@@ -1,7 +1,7 @@
-use crate::geom::intersection::PointIntersectionRecord;
+use crate::geom::intersection::PointIntersectionGroupRecord;
 use crate::limits::{LimitExceeded, Limits};
 use crate::preprocess::{InputSegmentF64, PreprocessOutput, preprocess_segments};
-use crate::session::{session_v1_to_json_string, session_v1_to_json_string_limited};
+use crate::session::{session_v2_to_json_string, session_v2_to_json_string_limited};
 use crate::sweep::bo::{
     BoError, enumerate_point_intersections_with_limits, enumerate_point_intersections_with_trace_and_limits,
 };
@@ -9,7 +9,7 @@ use crate::trace::Trace;
 
 #[derive(Clone, Debug)]
 pub struct Phase1Options {
-    /// 是否生成 `trace.v1.steps`（对大规模用例可关闭以降低输出与内存占用）。
+    /// 是否生成 `trace.v2.steps`（对大规模用例可关闭以降低输出与内存占用）。
     pub trace_enabled: bool,
     /// 输出规模/执行步数上限（任一触发即 fail-fast）。
     pub limits: Limits,
@@ -27,7 +27,7 @@ impl Default for Phase1Options {
 #[derive(Clone, Debug)]
 pub struct Phase1Output {
     pub preprocess: PreprocessOutput,
-    pub intersections: Vec<PointIntersectionRecord>,
+    pub intersections: Vec<PointIntersectionGroupRecord>,
     pub trace: Trace,
 }
 
@@ -62,14 +62,14 @@ pub fn run_phase1_with_options(
 }
 
 impl Phase1Output {
-    /// 将 phase1 结果打包为 `session.v1` JSON（可直接喂给 `viewer/` 回放器）。
+    /// 将 phase1 结果打包为 `session.v2` JSON（可直接喂给 `viewer/` 回放器）。
     pub fn to_session_json_string(&self) -> String {
-        session_v1_to_json_string(&self.preprocess.segments, &self.trace)
+        session_v2_to_json_string(&self.preprocess.segments, &self.trace)
     }
 
-    /// 将 phase1 结果打包为 `session.v1` JSON，并检查 `limits.max_session_bytes`（超限则报错）。
+    /// 将 phase1 结果打包为 `session.v2` JSON，并检查 `limits.max_session_bytes`（超限则报错）。
     pub fn to_session_json_string_limited(&self, limits: Limits) -> Result<String, LimitExceeded> {
-        session_v1_to_json_string_limited(&self.preprocess.segments, &self.trace, limits)
+        session_v2_to_json_string_limited(&self.preprocess.segments, &self.trace, limits)
     }
 }
 

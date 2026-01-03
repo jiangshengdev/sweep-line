@@ -3,17 +3,17 @@ use crate::geom::segment::{SegmentId, Segments};
 use crate::limits::{LimitExceeded, LimitKind, Limits};
 use crate::trace::Trace;
 
-pub const SESSION_SCHEMA: &str = "session.v1";
+pub const SESSION_SCHEMA: &str = "session.v2";
 
-/// 将（量化后的）线段集合与 `trace.v1` 打包为 `session.v1` JSON（字段顺序固定，便于回归与复现）。
-pub fn session_v1_to_json_string(segments: &Segments, trace: &Trace) -> String {
+/// 将（量化后的）线段集合与 `trace.v2` 打包为 `session.v2` JSON（字段顺序固定，便于回归与复现）。
+pub fn session_v2_to_json_string(segments: &Segments, trace: &Trace) -> String {
     let mut out = String::new();
     write_session_json(segments, trace, &mut out);
     out
 }
 
-/// 与 `session_v1_to_json_string` 等价，但额外检查 `limits.max_session_bytes`（超限则报错）。
-pub fn session_v1_to_json_string_limited(
+/// 与 `session_v2_to_json_string` 等价，但额外检查 `limits.max_session_bytes`（超限则报错）。
+pub fn session_v2_to_json_string_limited(
     segments: &Segments,
     trace: &Trace,
     limits: Limits,
@@ -216,7 +216,6 @@ fn hex_nibble(v: u32) -> char {
 mod tests {
     use super::*;
     use crate::geom::fixed::PointI64;
-    use crate::geom::intersection::PointIntersectionKind;
     use crate::geom::point::PointRat;
     use crate::geom::segment::Segment;
     use crate::limits::{LimitKind, Limits};
@@ -243,20 +242,19 @@ mod tests {
             Rational::from_int(0),
         );
         step.active = vec![a, b];
-        step.intersections.push(crate::geom::intersection::PointIntersectionRecord {
+        step.intersections.push(crate::geom::intersection::PointIntersectionGroupRecord {
             point: PointRat::from_i64(PointI64 { x: 0, y: 0 }),
-            kind: PointIntersectionKind::EndpointTouch,
-            a,
-            b,
+            endpoint_segments: vec![a, b],
+            interior_segments: vec![],
         });
         trace.warnings.push("示例告警".to_string());
         trace.steps.push(step);
 
-        let json = session_v1_to_json_string(&segments, &trace);
+        let json = session_v2_to_json_string(&segments, &trace);
         assert_eq!(
             json,
             concat!(
-                "{\"schema\":\"session.v1\",",
+                "{\"schema\":\"session.v2\",",
                 "\"fixed\":{\"scale\":\"1000000000\"},",
                 "\"segments\":[",
                 "{\"id\":0,\"source_index\":7,\"a\":{\"x\":-10,\"y\":0},\"b\":{\"x\":10,\"y\":0}},",
@@ -264,7 +262,7 @@ mod tests {
                 "}",
                 "],",
                 "\"trace\":",
-                "{\"schema\":\"trace.v1\",",
+                "{\"schema\":\"trace.v2\",",
                 "\"warnings\":[\"示例告警\"],",
                 "\"steps\":[",
                 "{\"kind\":\"PointBatch\",",
@@ -273,8 +271,8 @@ mod tests {
                 "\"events\":[],",
                 "\"active\":[0,1],",
                 "\"intersections\":[",
-                "{\"a\":0,\"b\":1,\"kind\":\"EndpointTouch\",",
-                "\"point\":{\"x\":{\"num\":\"0\",\"den\":\"1\"},\"y\":{\"num\":\"0\",\"den\":\"1\"}}}",
+                "{\"point\":{\"x\":{\"num\":\"0\",\"den\":\"1\"},\"y\":{\"num\":\"0\",\"den\":\"1\"}},",
+                "\"endpoint_segments\":[0,1],\"interior_segments\":[]}",
                 "],",
                 "\"notes\":[]",
                 "}",
@@ -307,15 +305,14 @@ mod tests {
             Rational::from_int(0),
         );
         step.active = vec![a, b];
-        step.intersections.push(crate::geom::intersection::PointIntersectionRecord {
+        step.intersections.push(crate::geom::intersection::PointIntersectionGroupRecord {
             point: PointRat::from_i64(PointI64 { x: 0, y: 0 }),
-            kind: PointIntersectionKind::EndpointTouch,
-            a,
-            b,
+            endpoint_segments: vec![a, b],
+            interior_segments: vec![],
         });
         trace.steps.push(step);
 
-        let err = session_v1_to_json_string_limited(
+        let err = session_v2_to_json_string_limited(
             &segments,
             &trace,
             Limits {

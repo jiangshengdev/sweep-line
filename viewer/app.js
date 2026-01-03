@@ -133,6 +133,15 @@ function formatSizeValue(value) {
   return text.endsWith(".0") ? text.slice(0, -2) : text;
 }
 
+function formatIdList(ids, limit) {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return "[]";
+  }
+  const shown = ids.slice(0, limit);
+  const suffix = ids.length > limit ? `,...${ids.length - limit} more` : "";
+  return `[${shown.join(",")}${suffix}]`;
+}
+
 function loadSettingsFromStorage() {
   const themeMode = safeStorageGetItem(storageKeys.themeMode);
   if (themeMode === "system" || themeMode === "light" || themeMode === "dark") {
@@ -616,21 +625,64 @@ function parsePointRat(value, path) {
   };
 }
 
-function parseIntersection(value, path) {
+function normalizeSegmentIdList(ids) {
+  const unique = new Set();
+  const out = [];
+  for (const id of ids) {
+    if (!Number.isInteger(id)) {
+      continue;
+    }
+    if (unique.has(id)) {
+      continue;
+    }
+    unique.add(id);
+    out.push(id);
+  }
+  out.sort((a, b) => a - b);
+  return out;
+}
+
+function parseIntersectionV1(value, path) {
   const obj = parseObject(value, path);
   const a = parseInteger(obj.a, `${path}.a`);
   const b = parseInteger(obj.b, `${path}.b`);
   const kind = parseString(obj.kind, `${path}.kind`);
   const point = parsePointRat(obj.point, `${path}.point`);
+  const segments = normalizeSegmentIdList([a, b]);
   return {
-    a,
-    b,
     kind,
     point,
+    segments,
+    endpointSegments: null,
+    interiorSegments: null,
   };
 }
 
-function parseStep(value, path) {
+function parseIntersectionV2(value, path) {
+  const obj = parseObject(value, path);
+  const point = parsePointRat(obj.point, `${path}.point`);
+  const endpointSegments = parseArray(obj.endpoint_segments, `${path}.endpoint_segments`).map((v, i) =>
+    parseInteger(v, `${path}.endpoint_segments[${i}]`),
+  );
+  const interiorSegments = parseArray(obj.interior_segments, `${path}.interior_segments`).map((v, i) =>
+    parseInteger(v, `${path}.interior_segments[${i}]`),
+  );
+
+  const endpointNorm = normalizeSegmentIdList(endpointSegments);
+  const interiorNorm = normalizeSegmentIdList(interiorSegments);
+  const segments = normalizeSegmentIdList([...endpointNorm, ...interiorNorm]);
+  const kind = endpointNorm.length ? "EndpointTouch" : "Proper";
+
+  return {
+    kind,
+    point,
+    segments,
+    endpointSegments: endpointNorm,
+    interiorSegments: interiorNorm,
+  };
+}
+
+function parseStep(value, path, traceSchema) {
   const obj = parseObject(value, path);
   const kind = parseString(obj.kind, `${path}.kind`);
   if (kind !== "PointBatch" && kind !== "VerticalFlush") {
@@ -647,9 +699,16 @@ function parseStep(value, path) {
   const active = parseArray(obj.active, `${path}.active`).map((v, i) =>
     parseInteger(v, `${path}.active[${i}]`),
   );
-  const intersections = parseArray(obj.intersections, `${path}.intersections`).map((v, i) =>
-    parseIntersection(v, `${path}.intersections[${i}]`),
-  );
+  const intersections = parseArray(obj.intersections, `${path}.intersections`).map((v, i) => {
+    const itemPath = `${path}.intersections[${i}]`;
+    if (traceSchema === "trace.v1") {
+      return parseIntersectionV1(v, itemPath);
+    }
+    if (traceSchema === "trace.v2") {
+      return parseIntersectionV2(v, itemPath);
+    }
+    throw new UserError(`不支持的 trace schema：${traceSchema}`);
+  });
   const notes = parseArray(obj.notes, `${path}.notes`).map((v, i) =>
     parseString(v, `${path}.notes[${i}]`),
   );
@@ -667,14 +726,14 @@ function parseStep(value, path) {
 function parseTrace(value, path) {
   const obj = parseObject(value, path);
   const schema = parseString(obj.schema, `${path}.schema`);
-  if (schema !== "trace.v1") {
-    throw new UserError(`${path}.schema 不是 trace.v1`);
+  if (schema !== "trace.v1" && schema !== "trace.v2") {
+    throw new UserError(`${path}.schema 不是 trace.v1/trace.v2`);
   }
   const warnings = parseArray(obj.warnings, `${path}.warnings`).map((v, i) =>
     parseString(v, `${path}.warnings[${i}]`),
   );
   const steps = parseArray(obj.steps, `${path}.steps`).map((v, i) =>
-    parseStep(v, `${path}.steps[${i}]`),
+    parseStep(v, `${path}.steps[${i}]`, schema),
   );
   return { schema, warnings, steps };
 }
@@ -703,8 +762,8 @@ function parseSegments(value, path) {
 function parseSession(value) {
   const obj = parseObject(value, "$");
   const schema = parseString(obj.schema, "$.schema");
-  if (schema !== "session.v1") {
-    throw new UserError("不是 session.v1 文件");
+  if (schema !== "session.v1" && schema !== "session.v2") {
+    throw new UserError("不是 session.v1/session.v2 文件");
   }
   const fixed = parseObject(obj.fixed, "$.fixed");
   const scaleStr = parseString(fixed.scale, "$.fixed.scale");
@@ -1108,16 +1167,13 @@ function refreshUiForStep() {
   const fragment = document.createDocumentFragment();
   for (const it of step.intersections) {
     const tr = document.createElement("tr");
-    const tdA = document.createElement("td");
-    tdA.textContent = String(it.a);
-    const tdB = document.createElement("td");
-    tdB.textContent = String(it.b);
+    const tdSegments = document.createElement("td");
+    tdSegments.textContent = formatIdList(it.segments, 16);
     const tdKind = document.createElement("td");
     tdKind.textContent = it.kind;
     const tdPoint = document.createElement("td");
     tdPoint.textContent = `(${it.point.x.text}, ${it.point.y.text})`;
-    tr.appendChild(tdA);
-    tr.appendChild(tdB);
+    tr.appendChild(tdSegments);
     tr.appendChild(tdKind);
     tr.appendChild(tdPoint);
     fragment.appendChild(tr);

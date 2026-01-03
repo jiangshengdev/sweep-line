@@ -3,7 +3,7 @@
 目的：在开始 `## 第二阶段：共线重叠线段（最大重叠段）`（见 `plans/bo-sweep-line.md`）之前，把关键语义与输出契约先定下来，避免实现到一半因为“输出含义/规模/溯源”不同而返工。
 
 ## 现状（Phase 1 已实现）
-- 点交枚举已实现（含 `Proper` / `EndpointTouch`），并提供 `trace.v1` 与 `session.v1` 稳定输出：
+- 点交枚举已实现（含 `Proper` / `EndpointTouch`），并提供 `trace.v2` 与 `session.v2` 稳定输出：
   - 入口：`src/run.rs` 的 `run_phase1`
   - BO 主流程：`src/sweep/bo.rs`
 - 共线重叠当前仅占位：`intersect_segments` 返回 `CollinearOverlap`，并在 phase1 记录 notes，不输出“重叠段”：
@@ -40,7 +40,7 @@
 - 因此预处理后不存在“完全相同（含反向）”的线段；但仍可能存在共线的部分重叠/包含（这是 Phase 2 要处理的重叠）。
 
 ### 5) Phase 2 输出：`session.v2`（为未来可视化准备数据）
-- 输出作为新的顶层 schema（`session.v2` 或等价新版本），不塞进 `trace.v1` 的 `warnings/notes`。
+- 输出作为新的顶层 schema（`session.v2` 或等价新版本），不塞进 `trace.v2` 的 `warnings/notes`。
 - 可视化不在本次任务范围内，但 phase2 输出必须满足“可画 + 可追溯”：
   - 几何：同时表达“重叠段（长度>0）”与“重叠点（退化）”。
   - 覆盖：能推导覆盖次数（至少能判断覆盖≥2；如需按层数上色，建议输出覆盖常值的原子子段或等价信息）。

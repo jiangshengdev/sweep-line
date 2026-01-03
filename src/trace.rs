@@ -2,7 +2,7 @@ use core::fmt;
 
 use crate::geom::point::PointRat;
 use crate::geom::segment::SegmentId;
-use crate::geom::intersection::PointIntersectionRecord;
+use crate::geom::intersection::PointIntersectionGroupRecord;
 use crate::rational::Rational;
 
 #[derive(Clone, Debug, Default)]
@@ -35,7 +35,7 @@ pub struct TraceStep {
     pub point: Option<PointRat>,
     pub events: Vec<String>,
     pub active: Vec<SegmentId>,
-    pub intersections: Vec<PointIntersectionRecord>,
+    pub intersections: Vec<PointIntersectionGroupRecord>,
     pub notes: Vec<String>,
 }
 
@@ -75,7 +75,7 @@ impl Trace {
 
 fn write_trace_json(trace: &Trace, out: &mut String) {
     out.push('{');
-    write_kv_str(out, "schema", "trace.v1");
+    write_kv_str(out, "schema", "trace.v2");
     out.push(',');
     write_kv_string_array(out, "warnings", &trace.warnings);
     out.push(',');
@@ -119,7 +119,7 @@ fn write_step_json(step: &TraceStep, out: &mut String) {
     out.push('}');
 }
 
-fn write_kv_intersections(out: &mut String, key: &str, value: &[PointIntersectionRecord]) {
+fn write_kv_intersections(out: &mut String, key: &str, value: &[PointIntersectionGroupRecord]) {
     out.push('"');
     out.push_str(key);
     out.push('"');
@@ -129,24 +129,22 @@ fn write_kv_intersections(out: &mut String, key: &str, value: &[PointIntersectio
         if i != 0 {
             out.push(',');
         }
-        write_intersection(out, *item);
+        write_intersection(out, item);
     }
     out.push(']');
 }
 
-fn write_intersection(out: &mut String, it: PointIntersectionRecord) {
+fn write_intersection(out: &mut String, it: &PointIntersectionGroupRecord) {
     out.push('{');
-    write_kv_usize(out, "a", it.a.0);
-    out.push(',');
-    write_kv_usize(out, "b", it.b.0);
-    out.push(',');
-    write_kv_str(out, "kind", &it.kind.to_string());
-    out.push(',');
     out.push('"');
     out.push_str("point");
     out.push('"');
     out.push(':');
     write_point(out, it.point);
+    out.push(',');
+    write_kv_segment_id_array(out, "endpoint_segments", &it.endpoint_segments);
+    out.push(',');
+    write_kv_segment_id_array(out, "interior_segments", &it.interior_segments);
     out.push('}');
 }
 
@@ -186,14 +184,6 @@ fn write_kv_rational(out: &mut String, key: &str, value: Rational) {
     out.push('"');
     out.push(':');
     write_rational(out, value);
-}
-
-fn write_kv_usize(out: &mut String, key: &str, value: usize) {
-    out.push('"');
-    out.push_str(key);
-    out.push('"');
-    out.push(':');
-    out.push_str(&value.to_string());
 }
 
 fn write_kv_str(out: &mut String, key: &str, value: &str) {
@@ -263,7 +253,6 @@ fn hex_nibble(v: u32) -> char {
 mod tests {
     use super::*;
     use crate::geom::fixed::PointI64;
-    use crate::geom::intersection::PointIntersectionKind;
 
     #[test]
     fn writes_stable_json_with_fixed_field_order() {
@@ -274,11 +263,10 @@ mod tests {
         );
         step.events.push("SegmentStart(1)".to_string());
         step.active = vec![SegmentId(1), SegmentId(3)];
-        step.intersections.push(PointIntersectionRecord {
+        step.intersections.push(PointIntersectionGroupRecord {
             point: PointRat::from_i64(PointI64 { x: 5, y: -2 }),
-            kind: PointIntersectionKind::EndpointTouch,
-            a: SegmentId(1),
-            b: SegmentId(3),
+            endpoint_segments: vec![SegmentId(1)],
+            interior_segments: vec![SegmentId(3)],
         });
         step.notes.push("包含引号: \" 和换行\n".to_string());
         trace.steps.push(step);
@@ -286,7 +274,7 @@ mod tests {
         let json = trace.to_json_string();
         assert_eq!(
             json,
-            "{\"schema\":\"trace.v1\",\"warnings\":[],\"steps\":[{\"kind\":\"PointBatch\",\"sweep_x\":{\"num\":\"5\",\"den\":\"1\"},\"point\":{\"x\":{\"num\":\"5\",\"den\":\"1\"},\"y\":{\"num\":\"-2\",\"den\":\"1\"}},\"events\":[\"SegmentStart(1)\"],\"active\":[1,3],\"intersections\":[{\"a\":1,\"b\":3,\"kind\":\"EndpointTouch\",\"point\":{\"x\":{\"num\":\"5\",\"den\":\"1\"},\"y\":{\"num\":\"-2\",\"den\":\"1\"}}}],\"notes\":[\"包含引号: \\\" 和换行\\n\"]}]}"
+            "{\"schema\":\"trace.v2\",\"warnings\":[],\"steps\":[{\"kind\":\"PointBatch\",\"sweep_x\":{\"num\":\"5\",\"den\":\"1\"},\"point\":{\"x\":{\"num\":\"5\",\"den\":\"1\"},\"y\":{\"num\":\"-2\",\"den\":\"1\"}},\"events\":[\"SegmentStart(1)\"],\"active\":[1,3],\"intersections\":[{\"point\":{\"x\":{\"num\":\"5\",\"den\":\"1\"},\"y\":{\"num\":\"-2\",\"den\":\"1\"}},\"endpoint_segments\":[1],\"interior_segments\":[3]}],\"notes\":[\"包含引号: \\\" 和换行\\n\"]}]}"
         );
     }
 }

@@ -7,13 +7,13 @@ use core::fmt;
 /// - 不做截断/降采样，避免“看似成功但数据不完整”。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Limits {
-    /// `session.v1` JSON 的最大字节数（UTF-8）。
+    /// `session.v2` JSON 的最大字节数（UTF-8）。
     pub max_session_bytes: usize,
-    /// `trace.v1.steps` 的最大条目数。
+    /// `trace.v2.steps` 的最大条目数。
     pub max_trace_steps: usize,
     /// 所有 trace step 的 `active.len()` 之和的上限。
     pub max_trace_active_entries_total: usize,
-    /// Phase 1 点交输出（pair 列表）的最大条目数。
+    /// Phase 1 点交输出（按点聚合）的最大条目数。
     pub max_intersections: usize,
 }
 
@@ -41,7 +41,7 @@ pub enum LimitKind {
 impl LimitKind {
     fn label_cn(&self) -> &'static str {
         match self {
-            LimitKind::SessionBytes => "session.v1 字节数",
+            LimitKind::SessionBytes => "session.v2 字节数",
             LimitKind::TraceSteps => "trace 步数（steps）",
             LimitKind::TraceActiveEntriesTotal => "trace 活动集合条目总数（Σ active.len）",
             LimitKind::Intersections => "点交输出条目数（intersections）",
@@ -60,7 +60,7 @@ impl LimitKind {
                 "缩小输入规模，或关闭 trace（Phase1Options.trace_enabled=false），或提高 max_trace_active_entries_total。"
             }
             LimitKind::Intersections => {
-                "缩小输入规模，或避免同点端点聚集（会触发 O(k^2) pair 枚举），或提高 max_intersections。"
+                "缩小输入规模（减少线段数/用例参数），或提高 max_intersections。"
             }
         }
     }
@@ -98,4 +98,3 @@ impl fmt::Display for LimitExceeded {
         )
     }
 }
-

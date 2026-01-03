@@ -1,6 +1,6 @@
-# 扫描线回放器（trace.v1）
+# 扫描线回放器（trace.v1/trace.v2）
 
-这是一个离线回放工具：读取 `session.v1`（线段 + `trace.v1`），用 Canvas 逐步展示扫描线事件批处理、活动集合顺序与交点输出。
+这是一个离线回放工具：读取 `session.v1/session.v2`（线段 + `trace.v1/trace.v2`），用 Canvas 逐步展示扫描线事件批处理、活动集合顺序与交点输出。
 
 ## 启动方式
 推荐用本地静态服务启动（因为浏览器对 ESM 的 `file://` 加载限制不一致）：
@@ -40,4 +40,4 @@ pnpm gen:sessions
 - 当前执行点：用十字准星标记，避免遮挡交点
 
 ## 数据格式
-`session.v1` 的建议格式见 `plans/trace-visualizer.md`。
+`session.v2` 的建议格式见 `plans/trace-visualizer.md`（同时兼容加载旧的 `session.v1`）。

@@ -6,7 +6,7 @@ use sweep_line::geom::fixed::{Coord, PointI64, SCALE};
 use sweep_line::geom::segment::{Segment, Segments};
 use sweep_line::limits::Limits;
 use sweep_line::run::run_phase1;
-use sweep_line::session::session_v1_to_json_string_limited;
+use sweep_line::session::session_v2_to_json_string_limited;
 use sweep_line::sweep::bo::enumerate_point_intersections_with_trace;
 
 const INDEX_SCHEMA: &str = "session-index.v1";
@@ -150,7 +150,7 @@ impl Args {
         "用法：cargo run --bin generate-viewer-sessions -- [--out <dir>] [--random N] [--segments N] [--seed U64]\n\
 \n\
 说明：\n\
-- 输出 `session.v1` 示例到 <dir>（默认：viewer/generated）。\n\
+- 输出 `session.v2` 示例到 <dir>（默认：viewer/generated）。\n\
 - 同时生成 <dir>/index.json（schema: session-index.v1），供 viewer 自动加载列表。\n\
 \n\
 示例：\n\
@@ -188,7 +188,7 @@ fn write_curated_basic_cross(curated_dir: &Path) -> Result<IndexItem, String> {
     let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
         .map_err(|e| format!("运行算法失败（basic-cross）：{e}"))?;
 
-    let json = session_v1_to_json_string_limited(&segments, &trace, Limits::default())
+    let json = session_v2_to_json_string_limited(&segments, &trace, Limits::default())
         .map_err(|e| format!("生成 session JSON 失败（basic-cross）：{e}"))?;
     let rel_path = "generated/curated/basic-cross.json".to_string();
     let out_path = curated_dir.join("basic-cross.json");
@@ -224,7 +224,7 @@ fn write_curated_rational_intersection(curated_dir: &Path) -> Result<IndexItem, 
     let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
         .map_err(|e| format!("运行算法失败（rational-intersection）：{e}"))?;
 
-    let json = session_v1_to_json_string_limited(&segments, &trace, Limits::default())
+    let json = session_v2_to_json_string_limited(&segments, &trace, Limits::default())
         .map_err(|e| format!("生成 session JSON 失败（rational-intersection）：{e}"))?;
     let rel_path = "generated/curated/rational-intersection.json".to_string();
     let out_path = curated_dir.join("rational-intersection.json");
@@ -260,7 +260,7 @@ fn write_curated_endpoint_touch(curated_dir: &Path) -> Result<IndexItem, String>
     let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
         .map_err(|e| format!("运行算法失败（endpoint-touch）：{e}"))?;
 
-    let json = session_v1_to_json_string_limited(&segments, &trace, Limits::default())
+    let json = session_v2_to_json_string_limited(&segments, &trace, Limits::default())
         .map_err(|e| format!("生成 session JSON 失败（endpoint-touch）：{e}"))?;
     let rel_path = "generated/curated/endpoint-touch.json".to_string();
     let out_path = curated_dir.join("endpoint-touch.json");
@@ -300,7 +300,7 @@ fn write_curated_preprocess_warnings(curated_dir: &Path) -> Result<IndexItem, St
         },
     ];
     let out = run_phase1(&input).map_err(|e| format!("运行 phase1 失败（warnings）：{e}"))?;
-    let json = session_v1_to_json_string_limited(&out.preprocess.segments, &out.trace, Limits::default())
+    let json = session_v2_to_json_string_limited(&out.preprocess.segments, &out.trace, Limits::default())
         .map_err(|e| format!("生成 session JSON 失败（warnings）：{e}"))?;
 
     let rel_path = "generated/curated/preprocess-warnings.json".to_string();
@@ -324,7 +324,7 @@ fn write_perf_grid_orthogonal(perf_dir: &Path, n: usize) -> Result<IndexItem, St
     let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
         .map_err(|e| format!("运行算法失败（perf-grid-orthogonal）：{e}"))?;
 
-    let json = session_v1_to_json_string_limited(&segments, &trace, Limits::default())
+    let json = session_v2_to_json_string_limited(&segments, &trace, Limits::default())
         .map_err(|e| format!("生成 session JSON 失败（perf-grid-orthogonal）：{e}"))?;
     let file_name = "perf-grid-orthogonal.json";
     let rel_path = format!("generated/perf/{file_name}");
@@ -352,7 +352,7 @@ fn write_perf_grid_diagonal_45(perf_dir: &Path, n: usize) -> Result<IndexItem, S
     let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
         .map_err(|e| format!("运行算法失败（perf-grid-diagonal-45）：{e}"))?;
 
-    let json = session_v1_to_json_string_limited(&segments, &trace, Limits::default())
+    let json = session_v2_to_json_string_limited(&segments, &trace, Limits::default())
         .map_err(|e| format!("生成 session JSON 失败（perf-grid-diagonal-45）：{e}"))?;
     let file_name = "perf-grid-diagonal-45.json";
     let rel_path = format!("generated/perf/{file_name}");
@@ -380,7 +380,7 @@ fn write_perf_spider_web(perf_dir: &Path, spokes: usize, rings: usize) -> Result
     let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
         .map_err(|e| format!("运行算法失败（perf-spider-web）：{e}"))?;
 
-    let json = session_v1_to_json_string_limited(&segments, &trace, Limits::default())
+    let json = session_v2_to_json_string_limited(&segments, &trace, Limits::default())
         .map_err(|e| format!("生成 session JSON 失败（perf-spider-web）：{e}"))?;
     let file_name = "perf-spider-web.json";
     let rel_path = format!("generated/perf/{file_name}");
@@ -409,7 +409,7 @@ fn write_random_case(
     let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
         .map_err(|e| format!("运行算法失败（random-{index:04}）：{e}"))?;
 
-    let json = session_v1_to_json_string_limited(&segments, &trace, Limits::default())
+    let json = session_v2_to_json_string_limited(&segments, &trace, Limits::default())
         .map_err(|e| format!("生成 session JSON 失败（random-{index:04}）：{e}"))?;
     let file_name = format!("random-{index:04}.json");
     let rel_path = format!("generated/random/{file_name}");
@@ -953,15 +953,15 @@ mod tests {
         let segments = build_random_segments(seed, 12);
         let (_hits_a, trace_a) = enumerate_point_intersections_with_trace(&segments).unwrap();
         let json_a =
-            session_v1_to_json_string_limited(&segments, &trace_a, Limits::default()).unwrap();
+            session_v2_to_json_string_limited(&segments, &trace_a, Limits::default()).unwrap();
 
         let segments_b = build_random_segments(seed, 12);
         let (_hits_b, trace_b) = enumerate_point_intersections_with_trace(&segments_b).unwrap();
         let json_b =
-            session_v1_to_json_string_limited(&segments_b, &trace_b, Limits::default()).unwrap();
+            session_v2_to_json_string_limited(&segments_b, &trace_b, Limits::default()).unwrap();
 
         assert_eq!(json_a, json_b);
-        assert!(json_a.starts_with("{\"schema\":\"session.v1\""));
+        assert!(json_a.starts_with("{\"schema\":\"session.v2\""));
     }
 
     #[test]
@@ -969,15 +969,15 @@ mod tests {
         let segments_a = build_perf_grid_orthogonal(20);
         let (_hits_a, trace_a) = enumerate_point_intersections_with_trace(&segments_a).unwrap();
         let json_a =
-            session_v1_to_json_string_limited(&segments_a, &trace_a, Limits::default()).unwrap();
+            session_v2_to_json_string_limited(&segments_a, &trace_a, Limits::default()).unwrap();
 
         let segments_b = build_perf_grid_orthogonal(20);
         let (_hits_b, trace_b) = enumerate_point_intersections_with_trace(&segments_b).unwrap();
         let json_b =
-            session_v1_to_json_string_limited(&segments_b, &trace_b, Limits::default()).unwrap();
+            session_v2_to_json_string_limited(&segments_b, &trace_b, Limits::default()).unwrap();
 
         assert_eq!(json_a, json_b);
-        assert!(json_a.starts_with("{\"schema\":\"session.v1\""));
+        assert!(json_a.starts_with("{\"schema\":\"session.v2\""));
     }
 
     #[test]
@@ -985,15 +985,15 @@ mod tests {
         let segments_a = build_perf_grid_diagonal_45(20);
         let (_hits_a, trace_a) = enumerate_point_intersections_with_trace(&segments_a).unwrap();
         let json_a =
-            session_v1_to_json_string_limited(&segments_a, &trace_a, Limits::default()).unwrap();
+            session_v2_to_json_string_limited(&segments_a, &trace_a, Limits::default()).unwrap();
 
         let segments_b = build_perf_grid_diagonal_45(20);
         let (_hits_b, trace_b) = enumerate_point_intersections_with_trace(&segments_b).unwrap();
         let json_b =
-            session_v1_to_json_string_limited(&segments_b, &trace_b, Limits::default()).unwrap();
+            session_v2_to_json_string_limited(&segments_b, &trace_b, Limits::default()).unwrap();
 
         assert_eq!(json_a, json_b);
-        assert!(json_a.starts_with("{\"schema\":\"session.v1\""));
+        assert!(json_a.starts_with("{\"schema\":\"session.v2\""));
     }
 
     #[test]
@@ -1001,14 +1001,14 @@ mod tests {
         let segments_a = build_perf_spider_web(16, 6).unwrap();
         let (_hits_a, trace_a) = enumerate_point_intersections_with_trace(&segments_a).unwrap();
         let json_a =
-            session_v1_to_json_string_limited(&segments_a, &trace_a, Limits::default()).unwrap();
+            session_v2_to_json_string_limited(&segments_a, &trace_a, Limits::default()).unwrap();
 
         let segments_b = build_perf_spider_web(16, 6).unwrap();
         let (_hits_b, trace_b) = enumerate_point_intersections_with_trace(&segments_b).unwrap();
         let json_b =
-            session_v1_to_json_string_limited(&segments_b, &trace_b, Limits::default()).unwrap();
+            session_v2_to_json_string_limited(&segments_b, &trace_b, Limits::default()).unwrap();
 
         assert_eq!(json_a, json_b);
-        assert!(json_a.starts_with("{\"schema\":\"session.v1\""));
+        assert!(json_a.starts_with("{\"schema\":\"session.v2\""));
     }
 }

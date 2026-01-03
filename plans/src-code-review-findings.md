@@ -36,8 +36,9 @@
 
 ## 3) 交点输出未按点聚合（同点多线段会爆量）
 
-- 位置：`../src/geom/intersection.rs` 的 `PointIntersectionRecord` 定义与 `../src/sweep/bo.rs` 的输出方式。
-- 现象：phase1 的交点输出是“点 + (a,b)”的 pair 记录；同一点涉及 `k` 条线段时，会产生 `k*(k-1)/2` 条记录。
+- 状态：已实现（见 `plans/aggregate-intersections-by-point.md`，以及 `../src/geom/intersection.rs` / `../src/sweep/bo.rs` / `../src/trace.rs` / `../src/session.rs` / `../viewer/app.js`）。
+- 位置：`../src/geom/intersection.rs` 的 `PointIntersectionGroupRecord` 定义与 `../src/sweep/bo.rs` 的输出方式。
+- 现象（修复前）：phase1 的交点输出是“点 + (a,b)”的 pair 记录；同一点涉及 `k` 条线段时，会产生 `k*(k-1)/2` 条记录。
 - 影响：
   - 对外输出/trace 容易爆量；
   - Phase 2 计划里明确希望“按点聚合输出”（见 `phase2-precheck.md`），当前数据结构需要后处理或升级 schema 才能满足。

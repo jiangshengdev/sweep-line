@@ -31,6 +31,19 @@ pub struct PointIntersectionRecord {
     pub b: SegmentId,
 }
 
+/// 按“点”聚合后的交点记录：同一几何点只输出一次。
+///
+/// 说明：
+/// - `endpoint_segments`：在该点以端点参与的线段集合（去重、升序）。
+/// - `interior_segments`：在该点以内部点参与的线段集合（去重、升序）。
+/// - 该结构用于避免同点多线段相交时输出 `O(k^2)` 的 pair 列表（见 `plans/src-code-review-findings.md` 的 #3 方案 B）。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PointIntersectionGroupRecord {
+    pub point: PointRat,
+    pub endpoint_segments: Vec<SegmentId>,
+    pub interior_segments: Vec<SegmentId>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SegmentIntersection {
     /// 唯一的点交（第一阶段的主要输出）。
