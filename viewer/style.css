@@ -389,6 +389,8 @@ button:disabled {
   font-size: 13px;
   margin-bottom: 4px;
   color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .session-item__meta {
@@ -509,7 +511,7 @@ button:disabled {
   display: grid;
   gap: 4px;
   overflow-wrap: anywhere;
-  word-break: break-word;
+  word-break: break-all;
 }
 
 .list {
@@ -517,7 +519,7 @@ button:disabled {
   padding-left: 18px;
   list-style-position: inside;
   overflow-wrap: anywhere;
-  word-break: break-word;
+  word-break: break-all;
 }
 
 details summary {
@@ -539,7 +541,7 @@ details summary {
   padding: 6px 6px;
   vertical-align: top;
   overflow-wrap: anywhere;
-  word-break: break-word;
+  word-break: break-all;
 }
 
 .table tbody tr:hover {
