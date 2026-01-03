@@ -32,7 +32,16 @@ ensure_rust() {
   # 1) 若 cargo 不存在，则安装 rustup + stable。
   if ! command -v cargo >/dev/null 2>&1; then
     echo "未检测到 cargo，开始安装 Rust toolchain（stable, minimal）..." 1>&2
-    curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+    # Vercel 构建环境里有时以 root 执行，但 HOME 可能被设为 /vercel，rustup 会提示 HOME 与 euid home 不一致。
+    # 该提示通常不影响安装，但会污染日志；这里在安装阶段临时修正 HOME。
+    INSTALL_HOME="${HOME:-}"
+    if [[ "${VERCEL:-}" == "1" ]] && command -v id >/dev/null 2>&1; then
+      if [[ "$(id -u)" == "0" ]] && [[ "${HOME:-}" != "/root" ]]; then
+        INSTALL_HOME="/root"
+      fi
+    fi
+
+    HOME="$INSTALL_HOME" curl -sSf https://sh.rustup.rs | HOME="$INSTALL_HOME" sh -s -- -y --profile minimal --default-toolchain stable
     source_rust_env
   fi
 
