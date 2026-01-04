@@ -6,3 +6,5 @@
 
 # 本地 git worktree 工作区
 /worktrees/
+
+/node_modules/
