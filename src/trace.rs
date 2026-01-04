@@ -1,8 +1,8 @@
 use core::fmt;
 
+use crate::geom::intersection::PointIntersectionGroupRecord;
 use crate::geom::point::PointRat;
 use crate::geom::segment::SegmentId;
-use crate::geom::intersection::PointIntersectionGroupRecord;
 use crate::rational::Rational;
 
 #[derive(Clone, Debug, Default)]

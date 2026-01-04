@@ -41,9 +41,12 @@ fn run(args: Args) -> Result<(), String> {
     let curated_dir = out_dir.join("curated");
     let perf_dir = out_dir.join("perf");
     let random_dir = out_dir.join("random");
-    fs::create_dir_all(&curated_dir).map_err(|e| format!("创建目录失败：{}（{}）", curated_dir.display(), e))?;
-    fs::create_dir_all(&perf_dir).map_err(|e| format!("创建目录失败：{}（{}）", perf_dir.display(), e))?;
-    fs::create_dir_all(&random_dir).map_err(|e| format!("创建目录失败：{}（{}）", random_dir.display(), e))?;
+    fs::create_dir_all(&curated_dir)
+        .map_err(|e| format!("创建目录失败：{}（{}）", curated_dir.display(), e))?;
+    fs::create_dir_all(&perf_dir)
+        .map_err(|e| format!("创建目录失败：{}（{}）", perf_dir.display(), e))?;
+    fs::create_dir_all(&random_dir)
+        .map_err(|e| format!("创建目录失败：{}（{}）", random_dir.display(), e))?;
 
     let mut items: Vec<IndexItem> = Vec::new();
 
@@ -130,7 +133,9 @@ impl Args {
                     let Some(v) = it.next() else {
                         return Err("--seed 缺少参数".to_string());
                     };
-                    seed = v.parse::<u64>().map_err(|_| "--seed 必须是 u64".to_string())?;
+                    seed = v
+                        .parse::<u64>()
+                        .map_err(|_| "--seed 必须是 u64".to_string())?;
                 }
                 _ => {
                     return Err(format!("未知参数：{arg}"));
@@ -192,8 +197,7 @@ fn write_curated_basic_cross(curated_dir: &Path) -> Result<IndexItem, String> {
         .map_err(|e| format!("生成 session JSON 失败（basic-cross）：{e}"))?;
     let rel_path = "generated/curated/basic-cross.json".to_string();
     let out_path = curated_dir.join("basic-cross.json");
-    fs::write(&out_path, json)
-        .map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
+    fs::write(&out_path, json).map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
 
     Ok(IndexItem {
         id: "basic-cross".to_string(),
@@ -217,7 +221,10 @@ fn write_curated_rational_intersection(curated_dir: &Path) -> Result<IndexItem, 
     push_segment(
         &mut segments,
         PointI64 { x: 0, y: SCALE / 2 },
-        PointI64 { x: SCALE, y: -SCALE },
+        PointI64 {
+            x: SCALE,
+            y: -SCALE,
+        },
         1,
     );
 
@@ -228,8 +235,7 @@ fn write_curated_rational_intersection(curated_dir: &Path) -> Result<IndexItem, 
         .map_err(|e| format!("生成 session JSON 失败（rational-intersection）：{e}"))?;
     let rel_path = "generated/curated/rational-intersection.json".to_string();
     let out_path = curated_dir.join("rational-intersection.json");
-    fs::write(&out_path, json)
-        .map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
+    fs::write(&out_path, json).map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
 
     Ok(IndexItem {
         id: "rational-intersection".to_string(),
@@ -246,14 +252,20 @@ fn write_curated_endpoint_touch(curated_dir: &Path) -> Result<IndexItem, String>
     let mut segments = Segments::new();
     push_segment(
         &mut segments,
-        PointI64 { x: -SCALE / 2, y: 0 },
+        PointI64 {
+            x: -SCALE / 2,
+            y: 0,
+        },
         PointI64 { x: 0, y: 0 },
         0,
     );
     push_segment(
         &mut segments,
         PointI64 { x: 0, y: 0 },
-        PointI64 { x: SCALE / 2, y: SCALE / 2 },
+        PointI64 {
+            x: SCALE / 2,
+            y: SCALE / 2,
+        },
         1,
     );
 
@@ -264,8 +276,7 @@ fn write_curated_endpoint_touch(curated_dir: &Path) -> Result<IndexItem, String>
         .map_err(|e| format!("生成 session JSON 失败（endpoint-touch）：{e}"))?;
     let rel_path = "generated/curated/endpoint-touch.json".to_string();
     let out_path = curated_dir.join("endpoint-touch.json");
-    fs::write(&out_path, json)
-        .map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
+    fs::write(&out_path, json).map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
 
     Ok(IndexItem {
         id: "endpoint-touch".to_string(),
@@ -300,13 +311,13 @@ fn write_curated_preprocess_warnings(curated_dir: &Path) -> Result<IndexItem, St
         },
     ];
     let out = run_phase1(&input).map_err(|e| format!("运行 phase1 失败（warnings）：{e}"))?;
-    let json = session_v2_to_json_string_limited(&out.preprocess.segments, &out.trace, Limits::default())
-        .map_err(|e| format!("生成 session JSON 失败（warnings）：{e}"))?;
+    let json =
+        session_v2_to_json_string_limited(&out.preprocess.segments, &out.trace, Limits::default())
+            .map_err(|e| format!("生成 session JSON 失败（warnings）：{e}"))?;
 
     let rel_path = "generated/curated/preprocess-warnings.json".to_string();
     let out_path = curated_dir.join("preprocess-warnings.json");
-    fs::write(&out_path, json)
-        .map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
+    fs::write(&out_path, json).map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
 
     Ok(IndexItem {
         id: "preprocess-warnings".to_string(),
@@ -375,7 +386,11 @@ fn write_perf_grid_diagonal_45(perf_dir: &Path, n: usize) -> Result<IndexItem, S
     })
 }
 
-fn write_perf_spider_web(perf_dir: &Path, spokes: usize, rings: usize) -> Result<IndexItem, String> {
+fn write_perf_spider_web(
+    perf_dir: &Path,
+    spokes: usize,
+    rings: usize,
+) -> Result<IndexItem, String> {
     let segments = build_perf_spider_web(spokes, rings)?;
     let (_hits, trace) = enumerate_point_intersections_with_trace(&segments)
         .map_err(|e| format!("运行算法失败（perf-spider-web）：{e}"))?;
@@ -414,8 +429,7 @@ fn write_random_case(
     let file_name = format!("random-{index:04}.json");
     let rel_path = format!("generated/random/{file_name}");
     let out_path = random_dir.join(&file_name);
-    fs::write(&out_path, json)
-        .map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
+    fs::write(&out_path, json).map_err(|e| format!("写入失败：{}（{}）", out_path.display(), e))?;
 
     Ok(IndexItem {
         id: format!("random-{index:04}"),
@@ -650,7 +664,10 @@ fn select_circle_directions_evenly(count: usize, radius: i64) -> Result<Vec<Vec2
     }
 
     if unique.len() != count {
-        return Err(format!("无法补齐方向向量：需要 {count}，实际 {}", unique.len()));
+        return Err(format!(
+            "无法补齐方向向量：需要 {count}，实际 {}",
+            unique.len()
+        ));
     }
     Ok(unique)
 }
@@ -797,7 +814,11 @@ struct XorShift64 {
 
 impl XorShift64 {
     fn new(seed: u64) -> Self {
-        let seed = if seed == 0 { 0x4d59_5df4_d0f3_3173 } else { seed };
+        let seed = if seed == 0 {
+            0x4d59_5df4_d0f3_3173
+        } else {
+            seed
+        };
         Self { state: seed }
     }
 

@@ -3,9 +3,7 @@ use core::fmt;
 
 use crate::geom::segment::{SegmentId, Segments};
 use crate::rational::Rational;
-use crate::sweep::segment_order::{
-    SegmentOrderError, cmp_segments_at_x_plus_epsilon, y_at_x,
-};
+use crate::sweep::segment_order::{SegmentOrderError, cmp_segments_at_x_plus_epsilon, y_at_x};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SweepStatusError {
@@ -62,7 +60,11 @@ pub trait SweepStatus {
         y_min: Rational,
         y_max: Rational,
     ) -> Result<Vec<SegmentId>, SweepStatusError> {
-        let (y_min, y_max) = if y_min <= y_max { (y_min, y_max) } else { (y_max, y_min) };
+        let (y_min, y_max) = if y_min <= y_max {
+            (y_min, y_max)
+        } else {
+            (y_max, y_min)
+        };
         let mut out = Vec::new();
 
         let mut current = self.lower_bound_by_y(segments, y_min)?;
@@ -212,7 +214,11 @@ impl SweepStatus for VecSweepStatus {
         y_min: Rational,
         y_max: Rational,
     ) -> Result<Vec<SegmentId>, SweepStatusError> {
-        let (y_min, y_max) = if y_min <= y_max { (y_min, y_max) } else { (y_max, y_min) };
+        let (y_min, y_max) = if y_min <= y_max {
+            (y_min, y_max)
+        } else {
+            (y_max, y_min)
+        };
         let sweep_x = self.sweep_x;
 
         let start = self.lower_bound_index_by_y(segments, y_min)?;
@@ -241,10 +247,8 @@ impl SweepStatus for VecSweepStatus {
         for i in 1..self.active.len() {
             let prev = self.active[i - 1];
             let curr = self.active[i];
-            let ord =
-                cmp_segments_at_x_plus_epsilon(segments, prev, curr, self.sweep_x).map_err(
-                    |e| e.to_string(),
-                )?;
+            let ord = cmp_segments_at_x_plus_epsilon(segments, prev, curr, self.sweep_x)
+                .map_err(|e| e.to_string())?;
             if ord != core::cmp::Ordering::Less {
                 return Err(format!(
                     "状态结构顺序不满足严格递增：{:?} 与 {:?}",
@@ -316,7 +320,12 @@ impl TreapSweepStatus {
         Self::priority_key(a) > Self::priority_key(b)
     }
 
-    fn set_parent_link(&mut self, parent: Option<SegmentId>, child: Option<SegmentId>, was_left: bool) {
+    fn set_parent_link(
+        &mut self,
+        parent: Option<SegmentId>,
+        child: Option<SegmentId>,
+        was_left: bool,
+    ) {
         if let Some(parent) = parent {
             if was_left {
                 self.nodes[parent.0].left = child;
@@ -657,15 +666,10 @@ impl SweepStatus for TreapSweepStatus {
         for i in 1..ordered.len() {
             let prev = ordered[i - 1];
             let curr = ordered[i];
-            let ord =
-                cmp_segments_at_x_plus_epsilon(segments, prev, curr, self.sweep_x).map_err(
-                    |e| e.to_string(),
-                )?;
+            let ord = cmp_segments_at_x_plus_epsilon(segments, prev, curr, self.sweep_x)
+                .map_err(|e| e.to_string())?;
             if ord != Ordering::Less {
-                return Err(format!(
-                    "BST 顺序不满足严格递增：{:?} 与 {:?}",
-                    prev, curr
-                ));
+                return Err(format!("BST 顺序不满足严格递增：{:?} 与 {:?}", prev, curr));
             }
         }
 
@@ -775,12 +779,9 @@ mod tests {
         status.insert(&segments, s1).unwrap();
         status.insert(&segments, s2).unwrap();
 
-        let ids = status.range_by_y(
-            &segments,
-            Rational::from_int(9),
-            Rational::from_int(11),
-        )
-        .unwrap();
+        let ids = status
+            .range_by_y(&segments, Rational::from_int(9), Rational::from_int(11))
+            .unwrap();
         assert_eq!(ids, vec![s2, s3]);
     }
 
@@ -871,12 +872,9 @@ mod tests {
         assert_eq!(status.pred(s2), Some(s1));
         assert_eq!(status.succ(s2), Some(s3));
 
-        let ids = status.range_by_y(
-            &segments,
-            Rational::from_int(9),
-            Rational::from_int(11),
-        )
-        .unwrap();
+        let ids = status
+            .range_by_y(&segments, Rational::from_int(9), Rational::from_int(11))
+            .unwrap();
         assert_eq!(ids, vec![s2, s3]);
 
         status.remove(s2).unwrap();

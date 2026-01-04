@@ -42,7 +42,9 @@ pub struct Segments {
 
 impl Segments {
     pub fn new() -> Self {
-        Self { segments: Vec::new() }
+        Self {
+            segments: Vec::new(),
+        }
     }
 
     pub fn len(&self) -> usize {

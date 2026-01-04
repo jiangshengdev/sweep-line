@@ -33,9 +33,14 @@ impl fmt::Display for InputCoord {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WarningKind {
-    DroppedInvalidCoordinate { coord: InputCoord, error: QuantizeError },
+    DroppedInvalidCoordinate {
+        coord: InputCoord,
+        error: QuantizeError,
+    },
     DroppedZeroLength,
-    DroppedDuplicate { kept_input_index: usize },
+    DroppedDuplicate {
+        kept_input_index: usize,
+    },
 }
 
 impl fmt::Display for WarningKind {
@@ -226,7 +231,9 @@ mod tests {
                 },
                 Warning {
                     input_index: 2,
-                    kind: WarningKind::DroppedDuplicate { kept_input_index: 1 }
+                    kind: WarningKind::DroppedDuplicate {
+                        kept_input_index: 1
+                    }
                 }
             ]
         );
@@ -255,4 +262,3 @@ mod tests {
         );
     }
 }
-

@@ -22,7 +22,7 @@ impl Default for Limits {
         // 默认值与 `plans/phase2-precheck.md` 的 fail-fast 约定保持一致；
         // 其中 `max_intersections` 为 phase1 的额外兜底（phase2-precheck 未单列）。
         Self {
-            max_session_bytes: 33_554_432,          // 32 MiB
+            max_session_bytes: 33_554_432, // 32 MiB
             max_trace_steps: 20_000,
             max_trace_active_entries_total: 3_500_000,
             max_intersections: 200_000,

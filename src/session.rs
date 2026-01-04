@@ -242,11 +242,12 @@ mod tests {
             Rational::from_int(0),
         );
         step.active = vec![a, b];
-        step.intersections.push(crate::geom::intersection::PointIntersectionGroupRecord {
-            point: PointRat::from_i64(PointI64 { x: 0, y: 0 }),
-            endpoint_segments: vec![a, b],
-            interior_segments: vec![],
-        });
+        step.intersections
+            .push(crate::geom::intersection::PointIntersectionGroupRecord {
+                point: PointRat::from_i64(PointI64 { x: 0, y: 0 }),
+                endpoint_segments: vec![a, b],
+                interior_segments: vec![],
+            });
         trace.warnings.push("示例告警".to_string());
         trace.steps.push(step);
 
@@ -305,11 +306,12 @@ mod tests {
             Rational::from_int(0),
         );
         step.active = vec![a, b];
-        step.intersections.push(crate::geom::intersection::PointIntersectionGroupRecord {
-            point: PointRat::from_i64(PointI64 { x: 0, y: 0 }),
-            endpoint_segments: vec![a, b],
-            interior_segments: vec![],
-        });
+        step.intersections
+            .push(crate::geom::intersection::PointIntersectionGroupRecord {
+                point: PointRat::from_i64(PointI64 { x: 0, y: 0 }),
+                endpoint_segments: vec![a, b],
+                interior_segments: vec![],
+            });
         trace.steps.push(step);
 
         let err = session_v2_to_json_string_limited(

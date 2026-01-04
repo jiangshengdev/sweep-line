@@ -169,11 +169,7 @@ fn collinear_intersection(
     q2: PointI64,
 ) -> Option<CollinearResult> {
     let vertical = p1.x == p2.x;
-    debug_assert_eq!(
-        vertical,
-        q1.x == q2.x,
-        "共线线段要么都垂直，要么都非垂直"
-    );
+    debug_assert_eq!(vertical, q1.x == q2.x, "共线线段要么都垂直，要么都非垂直");
 
     if vertical {
         let p_min = p1.y.min(p2.y);

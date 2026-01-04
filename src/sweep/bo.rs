@@ -80,7 +80,9 @@ impl PointIntersectionGroupBuilder {
 /// 说明：
 /// - 垂直线段不进入状态结构，而是在 x 批处理结束时用 `range_by_y` 做命中查询；
 /// - 对共线重叠只返回占位，不输出“重叠段”（第二阶段再做）。
-pub fn enumerate_point_intersections(segments: &Segments) -> Result<Vec<PointIntersectionGroupRecord>, BoError> {
+pub fn enumerate_point_intersections(
+    segments: &Segments,
+) -> Result<Vec<PointIntersectionGroupRecord>, BoError> {
     enumerate_point_intersections_with_limits(segments, Limits::default())
 }
 
@@ -115,7 +117,10 @@ fn run_bentley_ottmann(
     for id in 0..segments.len() {
         let id = SegmentId(id);
         let seg = segments.get(id);
-        queue.push(PointRat::from_i64(seg.a), Event::SegmentStart { segment: id });
+        queue.push(
+            PointRat::from_i64(seg.a),
+            Event::SegmentStart { segment: id },
+        );
         queue.push(PointRat::from_i64(seg.b), Event::SegmentEnd { segment: id });
     }
 
@@ -126,29 +131,30 @@ fn run_bentley_ottmann(
     let mut out: Vec<PointIntersectionGroupRecord> = Vec::new();
     let mut trace_active_entries_total: usize = 0;
 
-    let mut push_trace_step_with_limits = |trace: &mut Trace, step: TraceStep| -> Result<(), BoError> {
-        let next_steps = trace.steps.len() + 1;
-        if next_steps > limits.max_trace_steps {
-            return Err(BoError::Limits(LimitExceeded {
-                kind: LimitKind::TraceSteps,
-                limit: limits.max_trace_steps,
-                actual: next_steps,
-            }));
-        }
+    let mut push_trace_step_with_limits =
+        |trace: &mut Trace, step: TraceStep| -> Result<(), BoError> {
+            let next_steps = trace.steps.len() + 1;
+            if next_steps > limits.max_trace_steps {
+                return Err(BoError::Limits(LimitExceeded {
+                    kind: LimitKind::TraceSteps,
+                    limit: limits.max_trace_steps,
+                    actual: next_steps,
+                }));
+            }
 
-        let next_active_total = trace_active_entries_total.saturating_add(step.active.len());
-        if next_active_total > limits.max_trace_active_entries_total {
-            return Err(BoError::Limits(LimitExceeded {
-                kind: LimitKind::TraceActiveEntriesTotal,
-                limit: limits.max_trace_active_entries_total,
-                actual: next_active_total,
-            }));
-        }
+            let next_active_total = trace_active_entries_total.saturating_add(step.active.len());
+            if next_active_total > limits.max_trace_active_entries_total {
+                return Err(BoError::Limits(LimitExceeded {
+                    kind: LimitKind::TraceActiveEntriesTotal,
+                    limit: limits.max_trace_active_entries_total,
+                    actual: next_active_total,
+                }));
+            }
 
-        trace_active_entries_total = next_active_total;
-        trace.steps.push(step);
-        Ok(())
-    };
+            trace_active_entries_total = next_active_total;
+            trace.steps.push(step);
+            Ok(())
+        };
 
     let ensure_can_add_groups = |current_len: usize, additional: usize| -> Result<(), BoError> {
         let next_len = current_len.saturating_add(additional);
@@ -209,7 +215,8 @@ fn run_bentley_ottmann(
             step.events = events.iter().map(|e| event_to_string(*e)).collect();
         }
 
-        let mut intersection_groups: BTreeMap<PointRat, PointIntersectionGroupBuilder> = BTreeMap::new();
+        let mut intersection_groups: BTreeMap<PointRat, PointIntersectionGroupBuilder> =
+            BTreeMap::new();
 
         // 同一事件点上“作为端点出现”的线段：它们至少在该点存在端点-端点接触。
         let mut endpoint_ids_at_point: Vec<SegmentId> = events
@@ -264,7 +271,8 @@ fn run_bentley_ottmann(
                 Event::Intersection { a, b } => {
                     intersection_pairs.push((a, b));
                     if let Some(step) = step.as_mut() {
-                        step.notes.push(format!("IntersectionEvent({},{})", a.0, b.0));
+                        step.notes
+                            .push(format!("IntersectionEvent({},{})", a.0, b.0));
                     }
                 }
             }
@@ -332,7 +340,8 @@ fn run_bentley_ottmann(
         c.dedup();
 
         if let Some(step) = step.as_mut() {
-            step.notes.push(format!("ULC: U={} L={} C={}", u.len(), l.len(), c.len()));
+            step.notes
+                .push(format!("ULC: U={} L={} C={}", u.len(), l.len(), c.len()));
             step.notes.push(format!("U: {}", format_id_list(&u, 12)));
             step.notes.push(format!("L: {}", format_id_list(&l, 12)));
             step.notes.push(format!("C: {}", format_id_list(&c, 12)));
@@ -465,7 +474,10 @@ fn collect_vertical_hit_groups(
     let mut groups: BTreeMap<PointRat, PointIntersectionGroupBuilder> = BTreeMap::new();
     for &v_id in vertical {
         let v = segments.get(v_id);
-        debug_assert!(v.is_vertical(), "collect_vertical_hit_groups 仅应处理垂直线段");
+        debug_assert!(
+            v.is_vertical(),
+            "collect_vertical_hit_groups 仅应处理垂直线段"
+        );
 
         let v_a = PointRat::from_i64(v.a);
         let v_b = PointRat::from_i64(v.b);
@@ -586,7 +598,8 @@ fn record_vertical_endpoint_touches_for_ending_segments(
                 continue;
             }
 
-            let Some(SegmentIntersection::Point { point: ip, kind }) = intersect_segments(v, s) else {
+            let Some(SegmentIntersection::Point { point: ip, kind }) = intersect_segments(v, s)
+            else {
                 continue;
             };
             if ip != point || kind != PointIntersectionKind::EndpointTouch {
@@ -602,7 +615,8 @@ fn record_vertical_endpoint_touches_for_ending_segments(
 
     if added != 0 {
         if let Some(step) = trace_step.as_mut() {
-            step.notes.push(format!("VerticalEndpointTouch(end): {}", added));
+            step.notes
+                .push(format!("VerticalEndpointTouch(end): {}", added));
         }
     }
     Ok(())
@@ -633,8 +647,10 @@ fn schedule_or_record_pair(
         SegmentIntersection::CollinearOverlap => {
             // 第一阶段暂不输出“重叠段”。后续会引入“最大重叠段集合”输出。
             if let Some(step) = trace_step.as_mut() {
-                step.notes
-                    .push(format!("Check({},{}) -> CollinearOverlap(phase2)", a.0, b.0));
+                step.notes.push(format!(
+                    "Check({},{}) -> CollinearOverlap(phase2)",
+                    a.0, b.0
+                ));
             }
         }
         SegmentIntersection::Point { point, kind } => {
@@ -1018,7 +1034,10 @@ mod tests {
         assert_eq!(out1.len() as i64, n);
         assert!(out1.iter().all(|it| it.endpoint_segments.is_empty()));
         assert!(out1.iter().all(|it| it.interior_segments.len() == 2));
-        assert!(out1.iter().all(|it| it.interior_segments.contains(&horizontal)));
+        assert!(
+            out1.iter()
+                .all(|it| it.interior_segments.contains(&horizontal))
+        );
 
         let flush_count = t1
             .steps
@@ -1041,7 +1060,8 @@ mod tests {
             max_trace_steps: 1,
             ..Limits::default()
         };
-        let err = enumerate_point_intersections_with_trace_and_limits(&segments, limits).unwrap_err();
+        let err =
+            enumerate_point_intersections_with_trace_and_limits(&segments, limits).unwrap_err();
         match err {
             BoError::Limits(LimitExceeded {
                 kind: LimitKind::TraceSteps,
@@ -1069,7 +1089,8 @@ mod tests {
             max_trace_active_entries_total: 0,
             ..Limits::default()
         };
-        let err = enumerate_point_intersections_with_trace_and_limits(&segments, limits).unwrap_err();
+        let err =
+            enumerate_point_intersections_with_trace_and_limits(&segments, limits).unwrap_err();
         match err {
             BoError::Limits(LimitExceeded {
                 kind: LimitKind::TraceActiveEntriesTotal,
@@ -1090,10 +1111,7 @@ mod tests {
         for i in 0_usize..4 {
             segments.push(Segment {
                 a: PointI64 { x: 0, y: 0 },
-                b: PointI64 {
-                    x: 10,
-                    y: i as i64,
-                },
+                b: PointI64 { x: 10, y: i as i64 },
                 source_index: i,
             });
         }

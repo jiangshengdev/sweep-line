@@ -31,10 +31,7 @@ pub fn y_at_x(segment: &Segment, sweep_x: Rational) -> Result<Rational, SegmentO
     let dy = (segment.b.y as i128) - (segment.a.y as i128);
 
     debug_assert!(dx != 0, "非垂直线段的 dx 不应为 0");
-    debug_assert!(
-        dx > 0,
-        "线段端点应已规范化为 a.x < b.x（非垂直）"
-    );
+    debug_assert!(dx > 0, "线段端点应已规范化为 a.x < b.x（非垂直）");
 
     let p = sweep_x.num();
     let q = sweep_x.den();
@@ -153,14 +150,8 @@ mod tests {
     #[test]
     fn y_at_x_returns_error_on_overflow() {
         let segment = Segment {
-            a: PointI64 {
-                x: 0,
-                y: i64::MAX,
-            },
-            b: PointI64 {
-                x: 1,
-                y: i64::MAX,
-            },
+            a: PointI64 { x: 0, y: i64::MAX },
+            b: PointI64 { x: 1, y: i64::MAX },
             source_index: 0,
         };
         let x = Rational::new(1, 10_i128.pow(20));

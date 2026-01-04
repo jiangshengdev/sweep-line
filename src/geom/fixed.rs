@@ -59,15 +59,29 @@ mod tests {
 
     #[test]
     fn quantize_coord_rejects_out_of_range() {
-        assert_eq!(quantize_coord(1.0000000001).unwrap_err(), QuantizeError::OutOfRange);
-        assert_eq!(quantize_coord(-1.0000000001).unwrap_err(), QuantizeError::OutOfRange);
+        assert_eq!(
+            quantize_coord(1.0000000001).unwrap_err(),
+            QuantizeError::OutOfRange
+        );
+        assert_eq!(
+            quantize_coord(-1.0000000001).unwrap_err(),
+            QuantizeError::OutOfRange
+        );
     }
 
     #[test]
     fn quantize_coord_rejects_non_finite() {
-        assert_eq!(quantize_coord(f64::NAN).unwrap_err(), QuantizeError::NonFinite);
-        assert_eq!(quantize_coord(f64::INFINITY).unwrap_err(), QuantizeError::NonFinite);
-        assert_eq!(quantize_coord(f64::NEG_INFINITY).unwrap_err(), QuantizeError::NonFinite);
+        assert_eq!(
+            quantize_coord(f64::NAN).unwrap_err(),
+            QuantizeError::NonFinite
+        );
+        assert_eq!(
+            quantize_coord(f64::INFINITY).unwrap_err(),
+            QuantizeError::NonFinite
+        );
+        assert_eq!(
+            quantize_coord(f64::NEG_INFINITY).unwrap_err(),
+            QuantizeError::NonFinite
+        );
     }
 }
-

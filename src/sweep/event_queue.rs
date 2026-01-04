@@ -97,21 +97,45 @@ mod tests {
         let p1 = PointRat::from_i64(PointI64 { x: 0, y: 0 });
         let p2 = PointRat::from_i64(PointI64 { x: 1, y: 0 });
 
-        q.push(p2, Event::SegmentStart { segment: SegmentId(2) });
-        q.push(p1, Event::SegmentStart { segment: SegmentId(1) });
-        q.push(p2, Event::SegmentEnd { segment: SegmentId(0) });
+        q.push(
+            p2,
+            Event::SegmentStart {
+                segment: SegmentId(2),
+            },
+        );
+        q.push(
+            p1,
+            Event::SegmentStart {
+                segment: SegmentId(1),
+            },
+        );
+        q.push(
+            p2,
+            Event::SegmentEnd {
+                segment: SegmentId(0),
+            },
+        );
 
         let (p, e) = q.pop_next_batch().unwrap();
         assert_eq!(p, p1);
-        assert_eq!(e, vec![Event::SegmentStart { segment: SegmentId(1) }]);
+        assert_eq!(
+            e,
+            vec![Event::SegmentStart {
+                segment: SegmentId(1)
+            }]
+        );
 
         let (p, e) = q.pop_next_batch().unwrap();
         assert_eq!(p, p2);
         assert_eq!(
             e,
             vec![
-                Event::SegmentEnd { segment: SegmentId(0) },
-                Event::SegmentStart { segment: SegmentId(2) }
+                Event::SegmentEnd {
+                    segment: SegmentId(0)
+                },
+                Event::SegmentStart {
+                    segment: SegmentId(2)
+                }
             ]
         );
         assert!(q.is_empty());
@@ -126,8 +150,12 @@ mod tests {
             y: Rational::new(-2, 7),
         };
 
-        let e1 = Event::SegmentStart { segment: SegmentId(10) };
-        let e2 = Event::SegmentEnd { segment: SegmentId(2) };
+        let e1 = Event::SegmentStart {
+            segment: SegmentId(10),
+        };
+        let e2 = Event::SegmentEnd {
+            segment: SegmentId(2),
+        };
         let e3 = Event::intersection(SegmentId(7), SegmentId(3));
 
         q1.push(p, e1);
@@ -145,14 +173,17 @@ mod tests {
         assert_eq!(
             b1,
             vec![
-                Event::SegmentEnd { segment: SegmentId(2) },
+                Event::SegmentEnd {
+                    segment: SegmentId(2)
+                },
                 Event::Intersection {
                     a: SegmentId(3),
                     b: SegmentId(7)
                 },
-                Event::SegmentStart { segment: SegmentId(10) }
+                Event::SegmentStart {
+                    segment: SegmentId(10)
+                }
             ]
         );
     }
 }
-

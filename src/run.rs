@@ -3,7 +3,8 @@ use crate::limits::{LimitExceeded, Limits};
 use crate::preprocess::{InputSegmentF64, PreprocessOutput, preprocess_segments};
 use crate::session::{session_v2_to_json_string, session_v2_to_json_string_limited};
 use crate::sweep::bo::{
-    BoError, enumerate_point_intersections_with_limits, enumerate_point_intersections_with_trace_and_limits,
+    BoError, enumerate_point_intersections_with_limits,
+    enumerate_point_intersections_with_trace_and_limits,
 };
 use crate::trace::Trace;
 
@@ -44,15 +45,12 @@ pub fn run_phase1_with_options(
     let (intersections, mut trace) = if options.trace_enabled {
         enumerate_point_intersections_with_trace_and_limits(&preprocess.segments, options.limits)?
     } else {
-        let intersections = enumerate_point_intersections_with_limits(&preprocess.segments, options.limits)?;
+        let intersections =
+            enumerate_point_intersections_with_limits(&preprocess.segments, options.limits)?;
         (intersections, Trace::default())
     };
 
-    trace.warnings = preprocess
-        .warnings
-        .iter()
-        .map(|w| w.to_string())
-        .collect();
+    trace.warnings = preprocess.warnings.iter().map(|w| w.to_string()).collect();
 
     Ok(Phase1Output {
         preprocess,
