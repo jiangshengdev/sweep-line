@@ -3,6 +3,7 @@
 目标：在不改变核心功能的前提下，将 `viewer/app.js` 拆分为多个 ESM 模块，提升可读性、可维护性与后续扩展效率；同时整理 `viewer/index.html` / `viewer/style.css` 的结构，并在允许范围内做少量可访问性与交互细节优化。
 
 ## 范围
+
 - In：
   - 拆分 `viewer/app.js`：state / schema 解析 / render / ui / controller 分层，落到 `viewer/**.js` 多模块结构。
   - 为关键模块补充 JSDoc 类型标注；必要时在模块顶部加 `// @ts-check`（无需运行时依赖，仅用于编辑器/语言服务提示）。
@@ -14,6 +15,7 @@
   - 大幅 UI 改版或新增复杂功能。
 
 ## 模块划分（确定）
+
 - `viewer/app.js`
   - 入口/装配（wire-up）：创建 `elements/appState`，组合各模块，安装事件，启动渲染与索引加载。
 - `viewer/lib/*`
@@ -37,6 +39,7 @@
   - `loaders.js`：统一加载管线：`loadFromFile/loadFromUrl` → `parseSession` → `prepareSessionForPlayback` → 更新 state/ui/render；索引加载 `loadIndexAndRenderList`。
 
 ## 行动项
+
 [x] 1. 读取最新 `main` 变更记录，确认 viewer 相关改动点与潜在冲突面（避免重构时回归）。
 [x] 2. 设计最终模块边界与导出 API（先定接口，再迁移实现），并回填更新本文件“模块划分”小节。
 [x] 3. 新建 `viewer/lib/`：迁移 `safeStorage*`、clamp/round/format 等基础工具，统一状态变更与持久化写入路径。
@@ -50,12 +53,14 @@
 [x] 11. 收尾：`git status --porcelain` 确认干净、`git rebase main` 同步；回到主工作区 squash 合并（按仓库 worktree 流程）。
 
 ## 验证方式（最小）
+
 - 启动：`pnpm start` 或 `cd viewer && python3 -m http.server 8000`
 - 浏览器检查：
   - 页面正常渲染，控制台无报错
   - “手工回归”条目逐项通过
 
 ## 风险与对策
+
 - 路径/导出变更导致运行时 import 错误：每完成一个模块迁移就用浏览器快速冒烟。
 - 循环依赖：底层（lib/schema/render）尽量不依赖 ui/controller；入口统一装配。
 - DOM 结构调整导致事件绑定失效：优先保持 `id` 稳定；若必须调整，提供兼容层与回归清单兜底。

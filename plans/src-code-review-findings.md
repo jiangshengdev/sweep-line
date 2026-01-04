@@ -25,7 +25,7 @@
 - 现象：当前 phase1 直接构建并返回：
   - `Vec<PointIntersectionGroupRecord>`（按点聚合交点列表）
   - `Trace`（含 `steps`/`active`/`intersections` 等）
-  但没有 `max_*` 参数或硬上限检查。
+    但没有 `max_*` 参数或硬上限检查。
 - 影响：
   - 输入线段数较大或构造退化用例时，可能出现内存/时间不可控；
   - 尤其 `../src/sweep/bo.rs` 的 `record_endpoint_pairs` 在同点端点聚集时会产生 `O(k^2)` 记录，容易造成输出爆炸。
