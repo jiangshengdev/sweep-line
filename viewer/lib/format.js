@@ -16,4 +16,3 @@ export function formatSizeValue(value) {
   const text = String(rounded);
   return text.endsWith(".0") ? text.slice(0, -2) : text;
 }
-

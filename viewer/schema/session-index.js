@@ -93,4 +93,3 @@ export function parseSessionIndex(value, path) {
   });
   return { schema, items };
 }
-

@@ -144,13 +144,22 @@ export function createLoaders({ appState, setStatus }) {
   /**
    * @param {{ renderSessionList: () => void, renderSessionPicker: () => void }} opts
    */
-  async function loadIndexAndRenderList({ renderSessionList, renderSessionPicker }) {
+  async function loadIndexAndRenderList({
+    renderSessionList,
+    renderSessionPicker,
+  }) {
     const items = [];
-    const generated = await tryLoadIndexFile("./generated/index.json", "Rust 生成");
+    const generated = await tryLoadIndexFile(
+      "./generated/index.json",
+      "Rust 生成",
+    );
     if (generated) {
       items.push(...generated);
     }
-    const examples = await tryLoadIndexFile("./examples/index.json", "内置示例");
+    const examples = await tryLoadIndexFile(
+      "./examples/index.json",
+      "内置示例",
+    );
     if (examples) {
       items.push(...examples);
     }
@@ -166,4 +175,3 @@ export function createLoaders({ appState, setStatus }) {
     loadIndexAndRenderList,
   };
 }
-

@@ -23,11 +23,19 @@ const elements = {
   nextStep: document.getElementById("next-step"),
   speed: document.getElementById("speed"),
   themeMode: document.getElementById("theme-mode"),
-  showCumulativeIntersections: document.getElementById("show-cumulative-intersections"),
-  cumulativeIntersectionSize: document.getElementById("cumulative-intersection-size"),
-  cumulativeIntersectionSizeValue: document.getElementById("cumulative-intersection-size-value"),
+  showCumulativeIntersections: document.getElementById(
+    "show-cumulative-intersections",
+  ),
+  cumulativeIntersectionSize: document.getElementById(
+    "cumulative-intersection-size",
+  ),
+  cumulativeIntersectionSizeValue: document.getElementById(
+    "cumulative-intersection-size-value",
+  ),
   currentIntersectionSize: document.getElementById("current-intersection-size"),
-  currentIntersectionSizeValue: document.getElementById("current-intersection-size-value"),
+  currentIntersectionSizeValue: document.getElementById(
+    "current-intersection-size-value",
+  ),
   boldActiveSegments: document.getElementById("bold-active-segments"),
   stepSlider: document.getElementById("step-slider"),
   stepLabel: document.getElementById("step-label"),
@@ -101,7 +109,12 @@ function setStatus(message) {
 }
 
 const settings = createSettingsController({ elements, appState, renderer });
-const playback = createPlaybackController({ elements, appState, panels, renderer });
+const playback = createPlaybackController({
+  elements,
+  appState,
+  panels,
+  renderer,
+});
 const loaders = createLoaders({ appState, setStatus });
 
 function setSessionPickerVisible(visible) {
@@ -182,7 +195,9 @@ function renderSessionList() {
     items: appState.index.items,
     currentSource: appState.sessionSource,
     onSelect: (item) => {
-      loaders.loadFromUrl(item.path, getSessionLoadOptions()).catch(loaders.handleError);
+      loaders
+        .loadFromUrl(item.path, getSessionLoadOptions())
+        .catch(loaders.handleError);
     },
   });
 }
@@ -235,15 +250,21 @@ function installEventHandlers() {
   });
 
   elements.showCumulativeIntersections?.addEventListener("change", () => {
-    settings.setShowCumulativeIntersections(elements.showCumulativeIntersections.checked);
+    settings.setShowCumulativeIntersections(
+      elements.showCumulativeIntersections.checked,
+    );
   });
 
   elements.cumulativeIntersectionSize?.addEventListener("input", () => {
-    settings.setIntersectionRadiusCumulative(elements.cumulativeIntersectionSize.value);
+    settings.setIntersectionRadiusCumulative(
+      elements.cumulativeIntersectionSize.value,
+    );
   });
 
   elements.currentIntersectionSize?.addEventListener("input", () => {
-    settings.setIntersectionRadiusCurrent(elements.currentIntersectionSize.value);
+    settings.setIntersectionRadiusCurrent(
+      elements.currentIntersectionSize.value,
+    );
   });
 
   elements.boldActiveSegments?.addEventListener("change", () => {
@@ -260,7 +281,10 @@ function installEventHandlers() {
 
   elements.reloadIndex.addEventListener("click", async () => {
     try {
-      await loaders.loadIndexAndRenderList({ renderSessionList, renderSessionPicker });
+      await loaders.loadIndexAndRenderList({
+        renderSessionList,
+        renderSessionPicker,
+      });
       setStatus("已刷新示例列表");
     } catch (error) {
       loaders.handleError(error);
@@ -301,8 +325,12 @@ function installEventHandlers() {
     renderer.resetView();
   });
 
-  elements.prevStep.addEventListener("click", () => playback.setCurrentStep(appState.currentStep - 1));
-  elements.nextStep.addEventListener("click", () => playback.setCurrentStep(appState.currentStep + 1));
+  elements.prevStep.addEventListener("click", () =>
+    playback.setCurrentStep(appState.currentStep - 1),
+  );
+  elements.nextStep.addEventListener("click", () =>
+    playback.setCurrentStep(appState.currentStep + 1),
+  );
   elements.playPause.addEventListener("click", () => playback.togglePlay());
 
   elements.speed.addEventListener("change", () => {
@@ -331,7 +359,10 @@ function installEventHandlers() {
   });
 
   elements.viewport.addEventListener("pointermove", (event) => {
-    if (!appState.dragging.active || event.pointerId !== appState.dragging.pointerId) {
+    if (
+      !appState.dragging.active ||
+      event.pointerId !== appState.dragging.pointerId
+    ) {
       return;
     }
     const dx = event.clientX - appState.dragging.lastX;
@@ -363,7 +394,10 @@ function installEventHandlers() {
       const localX = event.clientX - rect.left;
       const localY = event.clientY - rect.top;
       const before = renderer.screenToWorld(localX, localY);
-      appState.camera.zoom = Math.max(10, Math.min(5000, appState.camera.zoom * scaleFactor));
+      appState.camera.zoom = Math.max(
+        10,
+        Math.min(5000, appState.camera.zoom * scaleFactor),
+      );
       const after = renderer.screenToWorld(localX, localY);
       appState.camera.cx += before.x - after.x;
       appState.camera.cy += before.y - after.y;
@@ -387,7 +421,10 @@ function installEventHandlers() {
       return;
     }
 
-    if (event.target && ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)) {
+    if (
+      event.target &&
+      ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)
+    ) {
       return;
     }
     playback.handleKeydown(event);

@@ -33,7 +33,10 @@ function applySessionListViewMode(elements, viewMode) {
   if (!elements.sessionList) {
     return;
   }
-  elements.sessionList.classList.toggle("session-list--grid", viewMode === "grid");
+  elements.sessionList.classList.toggle(
+    "session-list--grid",
+    viewMode === "grid",
+  );
 }
 
 /**
@@ -42,11 +45,17 @@ function applySessionListViewMode(elements, viewMode) {
 export function createSettingsController({ elements, appState, renderer }) {
   function loadSettingsFromStorage() {
     const themeMode = safeStorageGetItem(storageKeys.themeMode);
-    if (themeMode === "system" || themeMode === "light" || themeMode === "dark") {
+    if (
+      themeMode === "system" ||
+      themeMode === "light" ||
+      themeMode === "dark"
+    ) {
       appState.settings.themeMode = themeMode;
     }
 
-    const sessionListViewMode = safeStorageGetItem(storageKeys.sessionListViewMode);
+    const sessionListViewMode = safeStorageGetItem(
+      storageKeys.sessionListViewMode,
+    );
     if (sessionListViewMode === "list" || sessionListViewMode === "grid") {
       appState.settings.sessionListViewMode = sessionListViewMode;
     }
@@ -58,7 +67,9 @@ export function createSettingsController({ elements, appState, renderer }) {
       appState.settings.showCumulativeIntersections = false;
     }
 
-    const cumulativeSizeText = safeStorageGetItem(storageKeys.intersectionRadiusCumulative);
+    const cumulativeSizeText = safeStorageGetItem(
+      storageKeys.intersectionRadiusCumulative,
+    );
     if (cumulativeSizeText !== null) {
       const cumulativeSize = Number(cumulativeSizeText);
       if (Number.isFinite(cumulativeSize)) {
@@ -68,11 +79,15 @@ export function createSettingsController({ elements, appState, renderer }) {
       }
     }
 
-    const currentSizeText = safeStorageGetItem(storageKeys.intersectionRadiusCurrent);
+    const currentSizeText = safeStorageGetItem(
+      storageKeys.intersectionRadiusCurrent,
+    );
     if (currentSizeText !== null) {
       const currentSize = Number(currentSizeText);
       if (Number.isFinite(currentSize)) {
-        appState.settings.intersectionRadiusCurrent = roundToHalf(clampNumber(currentSize, 0.5, 10));
+        appState.settings.intersectionRadiusCurrent = roundToHalf(
+          clampNumber(currentSize, 0.5, 10),
+        );
       }
     }
 
@@ -90,18 +105,33 @@ export function createSettingsController({ elements, appState, renderer }) {
     }
     if (elements.sessionListViewList && elements.sessionListViewGrid) {
       const listActive = appState.settings.sessionListViewMode === "list";
-      elements.sessionListViewList.classList.toggle("segmented__button--active", listActive);
-      elements.sessionListViewList.setAttribute("aria-pressed", String(listActive));
+      elements.sessionListViewList.classList.toggle(
+        "segmented__button--active",
+        listActive,
+      );
+      elements.sessionListViewList.setAttribute(
+        "aria-pressed",
+        String(listActive),
+      );
 
       const gridActive = appState.settings.sessionListViewMode === "grid";
-      elements.sessionListViewGrid.classList.toggle("segmented__button--active", gridActive);
-      elements.sessionListViewGrid.setAttribute("aria-pressed", String(gridActive));
+      elements.sessionListViewGrid.classList.toggle(
+        "segmented__button--active",
+        gridActive,
+      );
+      elements.sessionListViewGrid.setAttribute(
+        "aria-pressed",
+        String(gridActive),
+      );
     }
     if (elements.showCumulativeIntersections) {
-      elements.showCumulativeIntersections.checked = appState.settings.showCumulativeIntersections;
+      elements.showCumulativeIntersections.checked =
+        appState.settings.showCumulativeIntersections;
     }
     if (elements.cumulativeIntersectionSize) {
-      elements.cumulativeIntersectionSize.value = String(appState.settings.intersectionRadiusCumulative);
+      elements.cumulativeIntersectionSize.value = String(
+        appState.settings.intersectionRadiusCumulative,
+      );
     }
     if (elements.cumulativeIntersectionSizeValue) {
       elements.cumulativeIntersectionSizeValue.textContent = formatSizeValue(
@@ -109,7 +139,9 @@ export function createSettingsController({ elements, appState, renderer }) {
       );
     }
     if (elements.currentIntersectionSize) {
-      elements.currentIntersectionSize.value = String(appState.settings.intersectionRadiusCurrent);
+      elements.currentIntersectionSize.value = String(
+        appState.settings.intersectionRadiusCurrent,
+      );
     }
     if (elements.currentIntersectionSizeValue) {
       elements.currentIntersectionSizeValue.textContent = formatSizeValue(
@@ -117,7 +149,8 @@ export function createSettingsController({ elements, appState, renderer }) {
       );
     }
     if (elements.boldActiveSegments) {
-      elements.boldActiveSegments.checked = appState.settings.boldActiveSegments;
+      elements.boldActiveSegments.checked =
+        appState.settings.boldActiveSegments;
     }
 
     applySessionListViewMode(elements, appState.settings.sessionListViewMode);
@@ -236,4 +269,3 @@ export function createSettingsController({ elements, appState, renderer }) {
     setSessionListViewMode,
   };
 }
-

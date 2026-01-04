@@ -9,4 +9,3 @@ export function stableColorForSegmentId(id) {
   const hue = (id * 47) % 360;
   return `hsl(${hue}deg 85% 68%)`;
 }
-

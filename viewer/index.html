@@ -34,11 +34,7 @@
         </div>
         <div class="view-options" aria-label="显示选项">
           <label class="toggle">
-            <input
-              id="show-cumulative-intersections"
-              type="checkbox"
-              checked
-            />
+            <input id="show-cumulative-intersections" type="checkbox" checked />
             累计交点
           </label>
           <label class="range">
@@ -79,7 +75,14 @@
           </label>
         </div>
         <div class="timeline">
-          <input id="step-slider" type="range" min="0" max="0" value="0" aria-label="步骤" />
+          <input
+            id="step-slider"
+            type="range"
+            min="0"
+            max="0"
+            value="0"
+            aria-label="步骤"
+          />
           <span id="step-label" class="mono">0/0</span>
         </div>
       </div>
@@ -194,7 +197,9 @@
     </main>
 
     <footer class="statusbar">
-      <span id="status" role="status" aria-live="polite" aria-atomic="true">未加载数据</span>
+      <span id="status" role="status" aria-live="polite" aria-atomic="true"
+        >未加载数据</span
+      >
     </footer>
 
     <div
@@ -208,7 +213,9 @@
     >
       <div class="session-picker__surface" role="document">
         <div class="session-picker__header">
-          <div id="session-picker-title" class="session-picker__title">选择示例</div>
+          <div id="session-picker-title" class="session-picker__title">
+            选择示例
+          </div>
           <input
             id="session-picker-search"
             type="text"
@@ -220,7 +227,10 @@
           <button id="session-picker-close" type="button">关闭</button>
         </div>
         <div class="session-picker__content">
-          <ul id="session-picker-list" class="session-list session-list--grid"></ul>
+          <ul
+            id="session-picker-list"
+            class="session-list session-list--grid"
+          ></ul>
           <div id="session-picker-empty" class="muted" hidden>无匹配结果</div>
           <div id="session-picker-hint" class="muted">
             提示：按 <span class="mono">Esc</span> 关闭

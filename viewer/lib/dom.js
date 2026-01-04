@@ -40,4 +40,3 @@ export function appendKvLines(container, lines) {
   }
   container.appendChild(fragment);
 }
-

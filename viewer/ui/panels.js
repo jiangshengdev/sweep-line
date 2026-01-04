@@ -38,7 +38,10 @@ function updateSessionListSelectionIn(container, current) {
   }
   const buttons = container.querySelectorAll("button.session-list__item");
   for (const btn of buttons) {
-    btn.classList.toggle("session-list__item--active", current && btn.dataset.path === current);
+    btn.classList.toggle(
+      "session-list__item--active",
+      current && btn.dataset.path === current,
+    );
   }
 }
 
@@ -82,7 +85,9 @@ export function createPanels({ elements, appState }) {
       return;
     }
 
-    const pointText = step.point ? `(${step.point.x.text}, ${step.point.y.text})` : "null";
+    const pointText = step.point
+      ? `(${step.point.x.text}, ${step.point.y.text})`
+      : "null";
 
     appendKvLines(elements.stepMeta, [
       ["index", `${appState.currentStep + 1}/${session.trace.steps.length}`],
@@ -92,13 +97,22 @@ export function createPanels({ elements, appState }) {
     ]);
 
     clearChildren(elements.events);
-    appendListItems(elements.events, step.events.length ? step.events : ["（空）"]);
+    appendListItems(
+      elements.events,
+      step.events.length ? step.events : ["（空）"],
+    );
 
     clearChildren(elements.notes);
-    appendListItems(elements.notes, step.notes.length ? step.notes : ["（空）"]);
+    appendListItems(
+      elements.notes,
+      step.notes.length ? step.notes : ["（空）"],
+    );
 
     clearChildren(elements.active);
-    appendListItems(elements.active, step.active.map((id) => String(id)));
+    appendListItems(
+      elements.active,
+      step.active.map((id) => String(id)),
+    );
 
     clearChildren(elements.intersections);
     const fragment = document.createDocumentFragment();

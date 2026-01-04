@@ -7,7 +7,9 @@ import { renderSessionListInto } from "./session-list.js";
  * @returns {string}
  */
 function normalizeSearchQuery(query) {
-  return String(query || "").trim().toLowerCase();
+  return String(query || "")
+    .trim()
+    .toLowerCase();
 }
 
 /**
@@ -81,4 +83,3 @@ export function renderSessionPickerList({ elements, appState, onSelect }) {
     onSelect,
   });
 }
-

@@ -218,17 +218,22 @@ function deriveIntersectionKind(endpointSegments, interiorSegments) {
 function parseIntersectionV2(value, path) {
   const obj = parseObject(value, path);
   const point = parsePointRat(obj.point, `${path}.point`);
-  const endpointSegments = parseArray(obj.endpoint_segments, `${path}.endpoint_segments`).map(
-    (v, i) => parseInteger(v, `${path}.endpoint_segments[${i}]`),
-  );
-  const interiorSegments = parseArray(obj.interior_segments, `${path}.interior_segments`).map(
-    (v, i) => parseInteger(v, `${path}.interior_segments[${i}]`),
-  );
+  const endpointSegments = parseArray(
+    obj.endpoint_segments,
+    `${path}.endpoint_segments`,
+  ).map((v, i) => parseInteger(v, `${path}.endpoint_segments[${i}]`));
+  const interiorSegments = parseArray(
+    obj.interior_segments,
+    `${path}.interior_segments`,
+  ).map((v, i) => parseInteger(v, `${path}.interior_segments[${i}]`));
 
   const endpointNorm = normalizeSegmentIdList(endpointSegments);
   const interiorNorm = normalizeSegmentIdList(interiorSegments);
   const segments = normalizeSegmentIdList([...endpointNorm, ...interiorNorm]);
-  const { kind, kindDetail } = deriveIntersectionKind(endpointNorm, interiorNorm);
+  const { kind, kindDetail } = deriveIntersectionKind(
+    endpointNorm,
+    interiorNorm,
+  );
 
   return {
     kind,
@@ -262,7 +267,10 @@ function parseStep(value, path, traceSchema) {
   const active = parseArray(obj.active, `${path}.active`).map((v, i) =>
     parseInteger(v, `${path}.active[${i}]`),
   );
-  const intersections = parseArray(obj.intersections, `${path}.intersections`).map((v, i) => {
+  const intersections = parseArray(
+    obj.intersections,
+    `${path}.intersections`,
+  ).map((v, i) => {
     const itemPath = `${path}.intersections[${i}]`;
     if (traceSchema === "trace.v1") {
       return parseIntersectionV1(v, itemPath);
@@ -310,13 +318,18 @@ function parseTrace(value, path) {
  * @param {string} path
  */
 function parseSegments(value, path) {
-  const items = parseArray(value, path).map((v, i) => parseObject(v, `${path}[${i}]`));
+  const items = parseArray(value, path).map((v, i) =>
+    parseObject(v, `${path}[${i}]`),
+  );
   const segmentsById = [];
   const worldSegments = [];
   for (let i = 0; i < items.length; i++) {
     const itemPath = `${path}[${i}]`;
     const id = parseInteger(items[i].id, `${itemPath}.id`);
-    const sourceIndex = parseInteger(items[i].source_index, `${itemPath}.source_index`);
+    const sourceIndex = parseInteger(
+      items[i].source_index,
+      `${itemPath}.source_index`,
+    );
     const a = parsePointFixed(items[i].a, `${itemPath}.a`);
     const b = parsePointFixed(items[i].b, `${itemPath}.b`);
     if (segmentsById[id]) {

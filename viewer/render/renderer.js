@@ -135,7 +135,15 @@ function strokeLine(ctx, a, b) {
  * @param {(x: number, y: number) => Vec2} worldToCanvas
  * @param {number} dpr
  */
-function drawVerticalCaps(ctx, worldX, yMinWorld, yMaxWorld, palette, worldToCanvas, dpr) {
+function drawVerticalCaps(
+  ctx,
+  worldX,
+  yMinWorld,
+  yMaxWorld,
+  palette,
+  worldToCanvas,
+  dpr,
+) {
   const cap = 6 * dpr;
   const pMin = worldToCanvas(worldX, yMinWorld);
   const pMax = worldToCanvas(worldX, yMaxWorld);
@@ -163,7 +171,17 @@ function drawVerticalCaps(ctx, worldX, yMinWorld, yMaxWorld, palette, worldToCan
  * @param {(x: number, y: number) => Vec2} worldToCanvas
  * @param {number} dpr
  */
-function drawPoint(ctx, worldX, worldY, radiusCss, fillStyle, strokeStyle, strokeWidthCss, worldToCanvas, dpr) {
+function drawPoint(
+  ctx,
+  worldX,
+  worldY,
+  radiusCss,
+  fillStyle,
+  strokeStyle,
+  strokeWidthCss,
+  worldToCanvas,
+  dpr,
+) {
   const p = worldToCanvas(worldX, worldY);
   const radius = radiusCss * dpr;
   ctx.save();
@@ -191,7 +209,16 @@ function drawPoint(ctx, worldX, worldY, radiusCss, fillStyle, strokeStyle, strok
  * @param {(x: number, y: number) => Vec2} worldToCanvas
  * @param {number} dpr
  */
-function drawCrosshair(ctx, worldX, worldY, sizeCss, strokeStyle, lineWidthCss, worldToCanvas, dpr) {
+function drawCrosshair(
+  ctx,
+  worldX,
+  worldY,
+  sizeCss,
+  strokeStyle,
+  lineWidthCss,
+  worldToCanvas,
+  dpr,
+) {
   const p = worldToCanvas(worldX, worldY);
   const size = sizeCss * dpr;
   const half = size / 2;
@@ -217,7 +244,16 @@ function drawCrosshair(ctx, worldX, worldY, sizeCss, strokeStyle, lineWidthCss, 
  * @param {(x: number, y: number) => Vec2} worldToCanvas
  * @param {number} dpr
  */
-function drawIntersections(ctx, intersections, scale, isCurrentStep, appState, palette, worldToCanvas, dpr) {
+function drawIntersections(
+  ctx,
+  intersections,
+  scale,
+  isCurrentStep,
+  appState,
+  palette,
+  worldToCanvas,
+  dpr,
+) {
   const radius = isCurrentStep
     ? appState.settings.intersectionRadiusCurrent
     : appState.settings.intersectionRadiusCumulative;
@@ -232,7 +268,17 @@ function drawIntersections(ctx, intersections, scale, isCurrentStep, appState, p
       continue;
     }
     const color = it.kind === "Proper" ? palette.ok : palette.danger;
-    drawPoint(ctx, p.x, p.y, radius, color, palette.canvasOutline, strokeWidth, worldToCanvas, dpr);
+    drawPoint(
+      ctx,
+      p.x,
+      p.y,
+      radius,
+      color,
+      palette.canvasOutline,
+      strokeWidth,
+      worldToCanvas,
+      dpr,
+    );
   }
   ctx.restore();
 }
@@ -250,7 +296,7 @@ export function createRenderer({ elements, appState }) {
     const { widthCss, heightCss, dpr } = appState.viewport;
     const { cx, cy, zoom } = appState.camera;
     const px = (x - cx) * zoom + widthCss / 2;
-    const py = (-(y - cy) * zoom) + heightCss / 2;
+    const py = -(y - cy) * zoom + heightCss / 2;
     return { x: px * dpr, y: py * dpr };
   }
 
@@ -320,7 +366,9 @@ export function createRenderer({ elements, appState }) {
     const activeSet = new Set(step.active);
     ctx.save();
     const baseActiveWidthCss = 1.25;
-    const activeWidthCss = appState.settings.boldActiveSegments ? 3 : baseActiveWidthCss;
+    const activeWidthCss = appState.settings.boldActiveSegments
+      ? 3
+      : baseActiveWidthCss;
     ctx.lineWidth = activeWidthCss * appState.viewport.dpr;
     ctx.globalAlpha = 0.95;
     for (const id of activeSet) {
@@ -374,7 +422,9 @@ export function createRenderer({ elements, appState }) {
     if (appState.settings.showCumulativeIntersections) {
       const currentIndex = appState.currentStep;
       const end =
-        currentIndex > 0 ? (session.intersectionPrefixCounts[currentIndex - 1] ?? 0) : 0;
+        currentIndex > 0
+          ? (session.intersectionPrefixCounts[currentIndex - 1] ?? 0)
+          : 0;
       const intersectionsToDraw = session.intersectionsFlat.slice(0, end);
       drawIntersections(
         ctx,
@@ -402,7 +452,10 @@ export function createRenderer({ elements, appState }) {
       const p = pointRatToWorld(step.point, session.scale);
       ctx.save();
       ctx.globalAlpha = 0.9;
-      const sizeCss = Math.max(12, appState.settings.intersectionRadiusCurrent * 4 + 6);
+      const sizeCss = Math.max(
+        12,
+        appState.settings.intersectionRadiusCurrent * 4 + 6,
+      );
       drawCrosshair(
         ctx,
         p.x,
@@ -479,7 +532,9 @@ export function createRenderer({ elements, appState }) {
     const session = appState.session;
     const width = appState.viewport.widthCss;
     const height = appState.viewport.heightCss;
-    const bounds = session ? computeBounds(session) : { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+    const bounds = session
+      ? computeBounds(session)
+      : { minX: -1, maxX: 1, minY: -1, maxY: 1 };
 
     const w = Math.max(1e-9, bounds.maxX - bounds.minX);
     const h = Math.max(1e-9, bounds.maxY - bounds.minY);
@@ -503,4 +558,3 @@ export function createRenderer({ elements, appState }) {
     screenToWorld,
   };
 }
-

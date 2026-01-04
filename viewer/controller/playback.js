@@ -3,7 +3,12 @@
 /**
  * @param {{ elements: any, appState: any, panels: any, renderer: any }} deps
  */
-export function createPlaybackController({ elements, appState, panels, renderer }) {
+export function createPlaybackController({
+  elements,
+  appState,
+  panels,
+  renderer,
+}) {
   function stopPlay() {
     if (appState.playTimerId !== null) {
       window.clearInterval(appState.playTimerId);
@@ -39,7 +44,10 @@ export function createPlaybackController({ elements, appState, panels, renderer 
     appState.playing = true;
     elements.playPause.textContent = "暂停";
     const baseFps = 10;
-    const intervalMs = Math.max(10, Math.floor(1000 / (baseFps * appState.speedFactor)));
+    const intervalMs = Math.max(
+      10,
+      Math.floor(1000 / (baseFps * appState.speedFactor)),
+    );
     appState.playTimerId = window.setInterval(() => {
       const last = appState.session.trace.steps.length - 1;
       if (appState.currentStep >= last) {
@@ -106,4 +114,3 @@ export function createPlaybackController({ elements, appState, panels, renderer 
     handleKeydown,
   };
 }
-

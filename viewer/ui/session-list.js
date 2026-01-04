@@ -62,7 +62,13 @@ function groupSessionIndexItemsForRender(items) {
  *   onSelect: (item: any) => void,
  * }} params
  */
-export function renderSessionListInto({ list, empty, items, currentSource, onSelect }) {
+export function renderSessionListInto({
+  list,
+  empty,
+  items,
+  currentSource,
+  onSelect,
+}) {
   if (!list) {
     return;
   }
@@ -93,7 +99,8 @@ export function renderSessionListInto({ list, empty, items, currentSource, onSel
       sectionLi.className = "session-list__folder";
 
       const folderTitle = document.createElement("div");
-      folderTitle.className = "session-list__group session-list__group--folder mono";
+      folderTitle.className =
+        "session-list__group session-list__group--folder mono";
       folderTitle.textContent = folder.key ? `${folder.key}/` : "（根目录）";
       sectionLi.appendChild(folderTitle);
 
@@ -135,4 +142,3 @@ export function renderSessionListInto({ list, empty, items, currentSource, onSel
 
   list.appendChild(fragment);
 }
-

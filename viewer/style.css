@@ -96,8 +96,16 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Noto Sans CJK SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Noto Sans CJK SC",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
     sans-serif;
   display: flex;
   flex-direction: column;
@@ -105,7 +113,8 @@ body {
 }
 
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
 }
 
@@ -382,7 +391,9 @@ button:disabled {
 
 .session-list__item--active {
   border-color: var(--accent-border-strong);
-  box-shadow: 0 0 0 2px var(--accent-inset) inset, var(--shadow-sm);
+  box-shadow:
+    0 0 0 2px var(--accent-inset) inset,
+    var(--shadow-sm);
 }
 
 .session-item__title {
